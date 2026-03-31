@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 24% 15%;
+    --foreground: 210 40% 98%;
+    --card: 240 24% 15%;
+    --card-foreground: 210 40% 98%;
+    --primary: 45 70% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 20% 22%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 240 20% 22%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 240 20% 22%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 20% 22%;
+    --input: 240 20% 22%;
+    --ring: 45 70% 50%;
+    --radius: 0.75rem;
+  }
+}
+
+/* 定义项目用到的所有自定义工具类 */
+@layer utilities {
+  .border-border {
+    border: 1px solid hsl(var(--border));
+  }
+  .bg-bg-deep {
+    background-color: hsl(var(--background));
+  }
+  .bg-bg-dark {
+    background-color: hsl(var(--secondary));
+  }
+  .text-text-primary {
+    color: hsl(var(--foreground));
+  }
+  .text-text-secondary {
+    color: hsl(var(--muted-foreground));
+  }
+  .bg-ink-darker {
+    background-color: hsl(var(--card));
+  }
+  .bg-ink-dark {
+    background-color: hsl(var(--secondary));
+  }
+  .text-ink-dark {
+    color: hsl(var(--background));
+  }
+  .bg-gold-primary {
+    background-color: hsl(var(--primary));
+  }
+  .to-gold-light {
+    --tw-gradient-to: hsl(45 70% 60%);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-bg-deep text-text-primary font-sans;
+    font-family: 'Noto Sans SC', sans-serif;
+  }
+  
+  /* 自定义滚动条 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-bg-dark;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-ink-darker rounded-full;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gold-primary;
+  }
+}
+
+@layer components {
+  /* 聊天气泡样式 */
+  .chat-bubble-user {
+    @apply bg-gradient-to-br from-gold-primary to-gold-light text-ink-dark rounded-2xl px-4 py-3 max-w-[80%] ml-auto shadow-lg;
+  }
+  
+  .chat-bubble-ai {
+    @apply bg-gradient-to-br from-ink-darker to-ink-dark text-text-primary rounded-2xl px-4 py-3 max-w-[80%] mr-auto shadow-lg border border-ink-darker;
+  }
+  
+  /* 情绪指示器 */
+  .emotion-indicator {
+    @apply h-2 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 relative overflow-hidden;
+  }
+  
+  /* 按钮样式 */
+  .btn-primary {
+    @apply bg-gradient-to-r from-gold-primary to-gold-light text-ink-dark px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95;
+  }
+  
+  .btn-secondary {
+    @apply bg-gradient-to-r from-ink-darker to-ink-dark text-text-primary px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border border-ink-darker;
+  }
+  
+  /* 卡片样式 */
+  .card {
+    @apply bg-gradient-to-br from-ink-darker to-ink-dark rounded-2xl p-6 shadow-xl border border-ink-darker backdrop-blur-sm;
+  }
+  
+  /* 输入框样式 */
+  .input-field {
+    @apply bg-bg-dark border border-ink-darker rounded-xl px-4 py-3 text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-gold-primary focus:border-gold-primary transition-all duration-300;
+  }
+}
+
+/* 动画效果 */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out;
+}
+
+/* 打字机效果 */
+.typing-cursor::after {
+  content: '|';
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}

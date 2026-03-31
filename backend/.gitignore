@@ -1,0 +1,20 @@
+# Python 相关
+__pycache__/
+*.py[cod]
+*.so
+.Python
+env/
+venv/
+.env
+*.env
+
+# IDE 相关
+.vscode/
+.idea/
+
+# 数据库
+*.db
+*.sqlite3
+
+# 日志
+*.log
