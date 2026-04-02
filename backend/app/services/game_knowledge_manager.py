@@ -354,101 +354,104 @@ class HonorKingsKnowledgeService(BaseGameKnowledgeService):
         return default_heroes
 
     def _fetch_win_rates(self, champion_mappings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """抓取王者荣耀英雄胜率数据"""
+        """
+        真实的英雄数据抓取（替换掉之前的 hash 伪造数据）
+        注：真实胜率被封锁在营地APP，此处改为抓取真实官方接口的英雄定位属性作为 RAG 知识库支撑。
+        """
+        results = []
         try:
-            # 使用hero_id的哈希值生成稳定的"随机"胜率
-            win_rates = []
+            # 真实请求官方公开的英雄基础数据接口
+            api_url = "https://game.gtimg.cn/images/yxzjs/img202409/heroimg/hero_list.json"
+            response = self.http.get(api_url, timeout=10)
+            hero_data_list = response.json()
+            
+            # 转为字典方便 O(1) 查找
+            hero_data_map = {str(item.get('heroId', '')): item for item in hero_data_list}
+
+            # 常见官方职业枚举映射
+            type_map = {1: "战士", 2: "法师", 3: "坦克", 4: "刺客", 5: "射手", 6: "辅助"}
+
             for hero in champion_mappings:
-                hero_id = hero.get("champion_id", "")
-                if not hero_id:
+                hero_id = str(hero.get("champion_id", ""))
+                hero_name = hero.get("chinese_name", "")
+                
+                official_data = hero_data_map.get(hero_id)
+                if not official_data:
                     continue
 
-                # 使用hero_id的哈希值生成稳定的胜率
-                hash_val = sum(ord(c) for c in str(hero_id))
-                win_rate = 48.0 + (hash_val % 10)  # 48% - 57%
-                pick_rate = 10.0 + ((hash_val * 7) % 25)  # 10% - 35%
-                ban_rate = 2.0 + ((hash_val * 3) % 15)  # 2% - 17%
-
-                win_rates.append({
-                    "hero": hero["chinese_name"],
-                    "hero_cn": hero["chinese_name"],
-                    "hero_en": hero["english_name"],
-                    "win_rate": f"{win_rate:.1f}%",
-                    "pick_rate": f"{pick_rate:.1f}%",
-                    "ban_rate": f"{ban_rate:.1f}%",
-                    "raw": f"胜率:{win_rate:.1f}% 出场率:{pick_rate:.1f}% 禁用率:{ban_rate:.1f}%",
-                    "source_url": self.WIN_RATE_URL,
-                })
-
-            # 按胜率排序
-            win_rates.sort(key=lambda x: float(x["win_rate"].replace("%", "")), reverse=True)
-            logger.info("生成 %d 个英雄的胜率数据", len(win_rates))
-            return win_rates
-
-        except Exception as exc:
-            logger.warning("生成胜率数据失败：%s", exc)
-            return []
-
-    def _fetch_counters(self, champion_mappings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """抓取王者荣耀英雄克制关系"""
-        try:
-            # 按照英雄定位分组
-            tank_heroes = ["亚瑟", "程咬金", "廉颇", "牛魔", "张飞"]
-            assassin_heroes = ["李白", "韩信", "兰陵王", "阿轲", "娜可露露"]
-            mage_heroes = ["妲己", "安琪拉", "王昭君", "甄姬", "小乔"]
-            marksman_heroes = ["后羿", "鲁班七号", "虞姬", "孙尚香", "百里守约"]
-
-            results = []
-            for hero in champion_mappings:
-                hero_name = hero["chinese_name"]
-
-                # 基于定位生成克制关系
-                counters = []
-                countered_by = []
-
-                if hero_name in tank_heroes:
-                    counters = mage_heroes[:3]  # 坦克被法师克制
-                    countered_by = assassin_heroes[:3]  # 坦克克制刺客
-                elif hero_name in assassin_heroes:
-                    counters = marksman_heroes[:3]  # 刺客被射手克制
-                    countered_by = mage_heroes[:3]  # 刺客克制法师
-                elif hero_name in mage_heroes:
-                    counters = assassin_heroes[:3]  # 法师被刺客克制
-                    countered_by = tank_heroes[:3]  # 法师克制坦克
-                elif hero_name in marksman_heroes:
-                    counters = assassin_heroes[:3]  # 射手被刺客克制
-                    countered_by = tank_heroes[:3]  # 射手克制坦克
-
-                # 从英雄映射中查找对应的英文名
-                lookup = {hero["chinese_name"]: hero for hero in champion_mappings}
-
-                counter_en = []
-                for cn_name in counters:
-                    mapping = lookup.get(cn_name)
-                    if mapping:
-                        counter_en.append(mapping["english_name"])
-
-                countered_by_en = []
-                for cn_name in countered_by:
-                    mapping = lookup.get(cn_name)
-                    if mapping:
-                        countered_by_en.append(mapping["english_name"])
+                hero_type = official_data.get('heroType', '0')
+                hero_type_cn = type_map.get(int(hero_type), "未知") if str(hero_type).isdigit() else hero_type
 
                 results.append({
                     "hero": hero_name,
                     "hero_cn": hero_name,
                     "hero_en": hero["english_name"],
-                    "counters": counter_en,
-                    "countered_by": countered_by_en,
-                    "source_url": self.WIN_RATE_URL,
+                    "win_rate": "暂无",
+                    "pick_rate": "暂无",
+                    "ban_rate": "暂无",
+                    # 将编造的数据替换为真实的官方属性说明
+                    "raw": f"官方真实定位: 【{hero_type_cn}】。英雄特色称号：{official_data.get('heroTitle', '未知')}。",
+                    "source_url": api_url,
                 })
-
-            logger.info("生成 %d 个英雄的克制关系", len(results))
+                
+            logger.info("成功抓取了 %d 个英雄的真实官方属性数据", len(results))
             return results
-
         except Exception as exc:
-            logger.warning("生成克制关系失败：%s", exc)
+            logger.warning("抓取真实英雄数据失败：%s", exc)
             return []
+
+    def _fetch_counters(self, champion_mappings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """真正抓取王者荣耀官网英雄详情页的克制关系"""
+        results = []
+        # 控制并发或抓取数量防止被限制
+        logger.info("开始深入抓取官网英雄克制关系，预计需要几十秒时间...")
+        
+        for hero in champion_mappings:
+            hero_id = hero.get("champion_id")
+            hero_name = hero.get("chinese_name")
+            if not hero_id:
+                continue
+
+            try:
+                # 真实访问官网的单个英雄详情页
+                detail_url = f"https://pvp.qq.com/web201605/herodetail/{hero_id}.shtml"
+                response = self.http.get(detail_url, timeout=5)
+                response.encoding = 'gbk'
+                soup = BeautifulSoup(response.text, 'html.parser')
+
+                counters_list = []
+                countered_by_list = []
+                
+                # 寻找官网页面中 "搭档/压制/被压制" 的模块
+                rel_box = soup.select('.hero-rel-box .hero-rel-list')
+                if len(rel_box) >= 3:
+                    # 官网固定排版：索引1为"压制英雄"，索引2为"被压制英雄"
+                    counters_tags = rel_box[1].select('a')
+                    countered_by_tags = rel_box[2].select('a')
+                    
+                    for a in counters_tags:
+                        hero_text = a.get('title') or a.get_text(strip=True)
+                        if hero_text:
+                            counters_list.append(hero_text)
+                            
+                    for a in countered_by_tags:
+                        hero_text = a.get('title') or a.get_text(strip=True)
+                        if hero_text:
+                            countered_by_list.append(hero_text)
+
+                results.append({
+                    "hero": hero_name,
+                    "hero_cn": hero_name,
+                    "hero_en": hero["english_name"],
+                    "counters": counters_list,
+                    "countered_by": countered_by_list,
+                    "source_url": detail_url,
+                })
+            except Exception as e:
+                logger.warning(f"抓取 {hero_name} 真实克制关系失败: {e}")
+
+        logger.info("完成真实抓取，共获取 %d 个英雄的克制关系", len(results))
+        return results
 
     def load_snapshot(self) -> Optional[Dict[str, Any]]:
         if not self.snapshot_path.exists():
@@ -808,28 +811,92 @@ class HonorKingsKnowledgeService(BaseGameKnowledgeService):
 
 
 class LeagueOfLegendsKnowledgeService(BaseGameKnowledgeService):
-    """英雄联盟知识库服务（未来实现）"""
+    """英雄联盟真实知识库服务"""
+
+    # 英雄联盟国服官方全英雄数据JSON接口
+    LOL_HERO_API_URL = "https://game.gtimg.cn/images/lol/act/img/js/heroList/hero_list.js"
 
     def __init__(self):
         super().__init__()
         self.game_name = "英雄联盟"
         self.game_code = "league_of_legends"
-        logger.warning("英雄联盟知识库服务暂未实现，使用基础服务")
+        self.collection_name = "lol_patch_knowledge"
+
+    def _fetch_champion_mappings(self) -> List[Dict[str, Any]]:
+        """从LOL官方接口抓取真实的英雄数据"""
+        try:
+            response = self.http.get(self.LOL_HERO_API_URL, timeout=10)
+            data = response.json()
+            heroes = data.get("hero", [])
+            
+            mappings = []
+            for hero in heroes:
+                hero_id = hero.get("heroId")
+                en_name = hero.get("alias", "")       # 如: Annie
+                cn_name = hero.get("name", "")        # 如: 安妮
+                title = hero.get("title", "")         # 如: 黑暗之女
+                roles = hero.get("roles", [])         # 如: ["mage"]
+                
+                mappings.append({
+                    "champion_id": str(hero_id),
+                    "english_name": en_name,
+                    "chinese_name": cn_name,
+                    "hero_title": title,
+                    "roles": roles,
+                    "aliases": [str(hero_id), cn_name, en_name, title],
+                })
+            logger.info("从LOL官方接口成功获取到 %d 个英雄数据", len(mappings))
+            return mappings
+        except Exception as e:
+            logger.error("抓取LOL英雄数据失败: %s", e)
+            return []
 
     def refresh_knowledge_base(self) -> Dict[str, Any]:
-        """暂不支持英雄联盟数据抓取"""
-        logger.warning("英雄联盟数据抓取暂未实现")
-        return {
-            "generated_at": "2024-01-01T00:00:00",
-            "version_label": "未实现",
-            "patch_notes": {},
-            "champion_mappings": [],
-            "win_rates": [],
-            "counters": [],
+        """刷新英雄联盟知识库"""
+        logger.info("开始刷新英雄联盟知识库")
+        
+        # 1. 抓取全英雄基础数据
+        champion_mappings = self._fetch_champion_mappings()
+        
+        # 2. 生成基于官方定位的数据 (用于RAG向量检索)
+        role_trans = {
+            "fighter": "战士", "mage": "法师", "assassin": "刺客",
+            "tank": "坦克", "marksman": "射手", "support": "辅助"
         }
+        
+        win_rates = []
+        for hero in champion_mappings:
+            roles_cn = [role_trans.get(r.lower(), r) for r in hero.get("roles", [])]
+            roles_str = "、".join(roles_cn)
+            win_rates.append({
+                "hero": hero["chinese_name"],
+                "hero_cn": hero["chinese_name"],
+                "hero_en": hero["english_name"],
+                "win_rate": "暂无", # 真实胜率需从OP.GG等第三方抓取，这里保留官方属性
+                "raw": f"官方真实定位: 【{roles_str}】。英雄称号：{hero['hero_title']}。",
+                "source_url": self.LOL_HERO_API_URL
+            })
+
+        snapshot = {
+            "generated_at": datetime.utcnow().isoformat(),
+            "version_label": "当前版本",
+            "patch_notes": {},
+            "champion_mappings": champion_mappings,
+            "win_rates": win_rates,
+            "counters": [], # 复杂克制关系建议让大模型自行推理，不灌输假数据
+        }
+        
+        self.snapshot_path.write_text(
+            json.dumps(snapshot, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        logger.info("英雄联盟知识库刷新完成")
+        return snapshot
 
     def ensure_knowledge_base(self) -> Dict[str, Any]:
-        """暂不支持英雄联盟数据抓取"""
+        snapshot = self.load_snapshot()
+        if snapshot and not self._is_stale(snapshot):
+            return snapshot
         return self.refresh_knowledge_base()
 
     def build_review_context(
@@ -845,10 +912,35 @@ class LeagueOfLegendsKnowledgeService(BaseGameKnowledgeService):
         top_k: int = 6,
     ) -> Dict[str, Any]:
         """构建英雄联盟复盘上下文"""
+        snapshot = self.ensure_knowledge_base()
+        champion_mappings = snapshot.get("champion_mappings", [])
+        
+        # 使用基类的方法从文本中提取英雄名
+        explicit_names = self._dedupe((team_composition or []) + (enemy_composition or []))
+        detected_from_text = self._extract_champions_from_text(game_description, champion_mappings)
+        detected = self._dedupe(
+            [item.get("chinese_name") for item in detected_from_text if item.get("chinese_name")]
+        )
+        
+        # 查找被识别出英雄的具体官方定位
+        hero_details = []
+        for d in detected:
+            for mapping in champion_mappings:
+                if mapping["chinese_name"] == d:
+                    roles = mapping.get("roles", [])
+                    hero_details.append(f"{mapping['chinese_name']}（{mapping['english_name']}，{mapping['hero_title']}）")
+                    break
+
+        context_text = (
+            f"当前支持英雄联盟真实数据解析。\n"
+            f"已从对局描述中识别到以下英雄：{'、'.join(hero_details) if hero_details else '未识别'}\n"
+            f"请结合这些英雄的传统机制特性，对玩家的操作和阵容进行复盘。"
+        )
+
         return {
-            "version_label": "未实现",
-            "detected_champions": [],
-            "context_text": "英雄联盟知识库服务暂未实现，请使用王者荣耀进行复盘。",
+            "version_label": "最新版本",
+            "detected_champions": detected,
+            "context_text": context_text,
             "retrieved_items": [],
         }
 
