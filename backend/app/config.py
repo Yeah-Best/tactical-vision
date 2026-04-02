@@ -26,7 +26,10 @@ class Settings:
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./tactical_vision.db")
 
     # CORS配置
-    ALLOWED_ORIGINS: List[str] = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+    ALLOWED_ORIGINS: List[str] = os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,http://192.168.192.1:5173"
+    ).split(",")
 
     # 应用配置
     DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
@@ -36,8 +39,17 @@ class Settings:
     HUNYUAN_MODEL: str = os.getenv("HUNYUAN_MODEL", "hunyuan-standard")
     MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "3"))
     REQUEST_TIMEOUT: int = int(os.getenv("REQUEST_TIMEOUT", "30"))
+
+    # 游戏知识库 / RAG 配置
+    GAME_KNOWLEDGE_DIR: str = os.getenv("GAME_KNOWLEDGE_DIR", "./data/game_knowledge")
+    GAME_KNOWLEDGE_REQUEST_TIMEOUT: int = int(os.getenv("GAME_KNOWLEDGE_REQUEST_TIMEOUT", "20"))
+    GAME_KNOWLEDGE_REFRESH_HOURS: int = int(os.getenv("GAME_KNOWLEDGE_REFRESH_HOURS", "12"))
+    GAME_KNOWLEDGE_AUTO_REFRESH: bool = os.getenv("GAME_KNOWLEDGE_AUTO_REFRESH", "true").lower() == "true"
+    GAME_DEFAULT_VERSION_LABEL: str = os.getenv("GAME_DEFAULT_VERSION_LABEL", "当前版本")
+
     # 模拟模式（当API调用失败时使用模拟数据）
     SIMULATE_MODE: bool = os.getenv("SIMULATE_MODE", "false").lower() == "true"
+
 
 
 settings = Settings()

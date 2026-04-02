@@ -29,16 +29,30 @@ export interface EmotionRecord {
 }
 
 // 对局复盘
+export interface GameReviewAnalyzePayload {
+  gameType: string
+  gameResult: string
+  kda?: string
+  gameDescription: string
+  gameVersion?: string
+  teamComposition?: string[]
+  enemyComposition?: string[]
+}
+
 export interface GameReview {
   id: number
   gameType: string
   gameResult: string
   kda?: string
   gameDescription: string
+  gameVersion?: string
+  teamComposition?: string[]
+  enemyComposition?: string[]
   reviewReport: string
   playerFeedback?: string
   createdAt: Date
 }
+
 
 // 玩家画像
 export interface PlayerProfile {
@@ -64,4 +78,25 @@ export interface MindsetTrend {
   date: string
   emotionLevel: number
   recordCount: number
+}
+
+// 游戏版本信息
+export interface GameVersionInfo {
+  game_name: string
+  version: string
+  update_time: string
+  update_content?: string
+  source_url?: string
+}
+
+// 支持的游戏信息
+export interface SupportedGame {
+  code: string
+  name: string
+  platform: string
+}
+
+// 支持的游戏列表响应
+export interface SupportedGamesResponse {
+  games: SupportedGame[]
 }

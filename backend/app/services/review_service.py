@@ -8,6 +8,8 @@ from sqlalchemy import func  # 【修复点 1】：必须显式导入 func
 from app.models import ReviewHistory
 from app.schemas import GameReviewRequest
 from app.services.hunyuan_client import hunyuan_client
+from app.services.game_knowledge_manager import game_knowledge_manager
+
 
 
 class ReviewService:
@@ -29,16 +31,33 @@ class ReviewService:
         Yields:
             逐字生成的复盘报告
         """
+        # 使用游戏知识库管理器根据游戏类型获取对应服务
+        rag_context = game_knowledge_manager.build_context(
+            game_type=request.game_type,
+            game_description=request.game_description,
+            game_result=request.game_result,
+            kda=request.kda,
+            team_composition=request.team_composition,
+            enemy_composition=request.enemy_composition,
+            game_version=request.game_version,
+        )
+
         game_data = {
             "game_type": request.game_type,
             "game_result": request.game_result,
             "kda": request.kda,
-            "game_description": request.game_description
+            "game_description": request.game_description,
+            "game_version": rag_context.get("version_label") or request.game_version,
+            "team_composition": request.team_composition or [],
+            "enemy_composition": request.enemy_composition or [],
+            "detected_champions": rag_context.get("detected_champions") or [],
+            "rag_context": rag_context.get("context_text", ""),
+            "rag_hits": rag_context.get("retrieved_items", []),
         }
 
-        # 调用AI生成复盘报告
         async for chunk in hunyuan_client.analyze_game_review(game_data):
             yield chunk
+
 
     async def save_review_history(
             self,
@@ -59,9 +78,13 @@ class ReviewService:
             game_type=request.game_type,
             game_result=request.game_result,
             kda=request.kda,
+            game_version=request.game_version,
+            team_composition=request.team_composition or [],
+            enemy_composition=request.enemy_composition or [],
             game_description=request.game_description,
             review_report=review_report
         )
+
 
         self.db.add(history)
         self.db.commit()

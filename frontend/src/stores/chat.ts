@@ -25,6 +25,10 @@ export const useChatStore = defineStore('chat', () => {
     type: '平静',
     level: 3,
     color: '#2EA043'
+  } as {
+    type: string
+    level: number
+    color: string
   })
 
   // 添加用户消息

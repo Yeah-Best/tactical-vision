@@ -40,6 +40,10 @@ class GameReviewRequest(BaseModel):
     game_result: str
     kda: Optional[str] = None
     game_description: str
+    game_version: Optional[str] = None
+    team_composition: Optional[List[str]] = None
+    enemy_composition: Optional[List[str]] = None
+
 
 
 class GameReviewResponse(BaseModel):
@@ -47,10 +51,14 @@ class GameReviewResponse(BaseModel):
     game_type: str
     game_result: str
     kda: Optional[str]
+    game_version: Optional[str] = None
+    team_composition: Optional[List[str]] = None
+    enemy_composition: Optional[List[str]] = None
     game_description: str
     review_report: str
     player_feedback: Optional[str]
     created_at: datetime
+
 
     class Config:
         from_attributes = True

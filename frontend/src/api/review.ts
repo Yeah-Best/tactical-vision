@@ -3,23 +3,23 @@
  */
 
 import { request, streamRequest } from './request'
-import type { ApiResponse, GameReview } from '../types'
+import type { ApiResponse, GameReview, GameReviewAnalyzePayload } from '../types'
+
 
 /**
  * 分析对局（流式）
  */
-export async function* analyzeGame(data: {
-  gameType: string
-  gameResult: string
-  kda?: string
-  gameDescription: string
-}) {
+export async function* analyzeGame(data: GameReviewAnalyzePayload) {
   const response = streamRequest('/review/analyze', {
     game_type: data.gameType,
     game_result: data.gameResult,
     kda: data.kda,
-    game_description: data.gameDescription
+    game_description: data.gameDescription,
+    game_version: data.gameVersion,
+    team_composition: data.teamComposition,
+    enemy_composition: data.enemyComposition
   })
+
 
   for await (const chunk of response) {
     yield chunk
@@ -51,5 +51,21 @@ export function updatePlayerFeedback(
 ): Promise<ApiResponse<any>> {
   return request.post(`/review/${reviewId}/feedback`, {
     feedback
+  })
+}
+
+/**
+ * 获取支持的游戏列表
+ */
+export function getSupportedGames(): Promise<ApiResponse<any[]>> {
+  return request.get('/review/games/supported')
+}
+
+/**
+ * 刷新游戏知识库
+ */
+export function refreshKnowledge(gameType: string = '王者荣耀'): Promise<ApiResponse<any>> {
+  return request.post('/review/knowledge/refresh', null, {
+    params: { game_type: gameType }
   })
 }

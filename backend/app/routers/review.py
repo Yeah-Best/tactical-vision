@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas import GameReviewRequest, APIResponse, GameReviewResponse
 from app.services.review_service import ReviewService
+from app.services.game_knowledge_manager import game_knowledge_manager
 import json
 
 router = APIRouter()
@@ -134,5 +135,52 @@ async def update_feedback(
             )
         else:
             raise HTTPException(status_code=404, detail="复盘记录不存在")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/games/supported", response_model=APIResponse)
+async def get_supported_games():
+    """
+    获取支持的游戏列表
+
+    Returns:
+        支持的游戏列表及其状态
+    """
+    try:
+        games = game_knowledge_manager.get_supported_games()
+        return APIResponse(
+            success=True,
+            message="获取支持的游戏列表成功",
+            data=games
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/knowledge/refresh", response_model=APIResponse)
+async def refresh_knowledge(game_type: str = "王者荣耀"):
+    """
+    刷新指定游戏的知识库
+
+    Args:
+        game_type: 游戏类型（默认：王者荣耀）
+
+    Returns:
+        刷新结果
+    """
+    try:
+        result = game_knowledge_manager.refresh_game_knowledge(game_type)
+        return APIResponse(
+            success=True,
+            message=f"{game_type} 知识库刷新成功",
+            data={
+                "game_type": game_type,
+                "version_label": result.get("version_label"),
+                "generated_at": result.get("generated_at"),
+                "win_rates_count": len(result.get("win_rates", [])),
+                "counters_count": len(result.get("counters", [])),
+            }
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

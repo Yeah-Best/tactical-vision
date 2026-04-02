@@ -1,8 +1,80 @@
 <template>
   <div class="space-y-8">
     <div class="text-center space-y-2">
-      <h1 class="text-4xl font-bold text-text-primary">情绪疏导</h1>
+      <div class="flex items-center justify-center space-x-4">
+        <h1 class="text-4xl font-bold text-text-primary">情绪疏导</h1>
+        <!-- 语音控制按钮 -->
+        <div class="flex items-center space-x-2">
+          <el-button
+            :icon="voiceEnabled ? Bell : Mute"
+            :type="voiceEnabled ? 'primary' : 'default'"
+            circle
+            size="small"
+            @click="toggleVoice"
+            :title="voiceEnabled ? '关闭语音朗读' : '开启语音朗读'"
+          />
+          <el-button
+            v-if="isSpeaking"
+            :icon="VideoPause"
+            type="warning"
+            circle
+            size="small"
+            @click="stopSpeaking"
+            title="停止朗读"
+          />
+        </div>
+      </div>
       <p class="text-text-secondary">青莲剑仙在此倾听，为你驱散心头的阴霾</p>
+      
+      <!-- 语音设置 -->
+      <div v-if="voiceEnabled" class="mt-4 flex items-center justify-center space-x-6">
+        <div class="flex items-center space-x-2">
+          <span class="text-sm text-text-secondary">语音音量</span>
+          <el-slider
+            v-model="speechVolume"
+            :min="0"
+            :max="1"
+            :step="0.1"
+            :show-tooltip="false"
+            style="width: 120px"
+          />
+          <span class="text-sm text-text-secondary">{{ Math.round(speechVolume * 100) }}%</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-sm text-text-secondary">语速</span>
+          <el-slider
+            v-model="speechRate"
+            :min="0.5"
+            :max="2"
+            :step="0.1"
+            :show-tooltip="false"
+            style="width: 120px"
+          />
+          <span class="text-sm text-text-secondary">{{ speechRate }}x</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-sm text-text-secondary">语音</span>
+          <el-select
+            v-model="selectedVoice"
+            placeholder="选择语音"
+            size="small"
+            style="width: 200px"
+          >
+            <el-option
+              v-for="voice in availableVoices.filter(v => v.lang.includes('zh'))"
+              :key="voice.name"
+              :label="voice.name"
+              :value="voice.name"
+            />
+          </el-select>
+          <el-button
+            size="small"
+            @click="testVoice"
+          >
+            测试语音
+          </el-button>
+        </div>
+      </div>
     </div>
 
     <div class="card">
@@ -66,7 +138,7 @@
             v-for="scene in emotionScenes"
             :key="scene.type"
             @click="applyEmotionScene(scene)"
-            class="w-full btn-secondary text-left justify-start h-auto py-3"
+            class="w-full btn-secondary h-auto py-3"
           >
             <div class="text-left">
               <div class="font-medium">{{ scene.label }}</div>
@@ -93,13 +165,30 @@
               <div class="w-8 h-8 rounded-full bg-gradient-to-br from-gold-primary to-gold-light flex items-center justify-center flex-shrink-0">
                 <span class="text-xs font-bold text-ink-dark">李</span>
               </div>
-              <div class="chat-bubble-ai">
+              <div class="chat-bubble-ai flex-1">
                 <div 
                   class="text-sm leading-relaxed"
                   v-html="formatMessage(message.content)"
                 />
-                <div class="text-xs text-text-secondary mt-2">
-                  {{ formatTime(message.timestamp) }}
+                <div class="flex items-center justify-between mt-2">
+                  <div class="text-xs text-text-secondary">
+                    {{ formatTime(message.timestamp) }}
+                  </div>
+                  <!-- 语音播放按钮 -->
+                  <div v-if="voiceEnabled" class="flex items-center">
+                    <el-button
+                      :icon="VideoPlay"
+                      size="small"
+                      circle
+                      text
+                      @click="speakText(message.content, chatStore.currentEmotion.type)"
+                      title="重新播放"
+                      :disabled="isSpeaking"
+                    />
+                    <el-tag v-if="isSpeaking && currentSpeechUtterance" size="small" type="success">
+                      正在朗读...
+                    </el-tag>
+                  </div>
                 </div>
               </div>
             </div>
@@ -196,7 +285,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick, watch, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import {
@@ -204,7 +293,11 @@ import {
   Operation,
   ChatDotRound,
   Position,
-  Clock
+  Clock,
+  VideoPlay,
+  VideoPause,
+  Mute,
+  Bell
 } from '@element-plus/icons-vue'
 import { useChatStore } from '../stores/chat'
 import { analyzeEmotion, getEmotionHistory } from '../api/emotion'
@@ -217,6 +310,16 @@ const userInput = ref('')
 const messageContainer = ref<HTMLElement>()
 const emotionHistory = ref<EmotionRecord[]>([])
 
+// 语音相关状态
+const voiceEnabled = ref(true)
+const isSpeaking = ref(false)
+const speechVolume = ref(1.0)
+const speechRate = ref(1.0)
+const currentSpeechUtterance = ref<SpeechSynthesisUtterance | null>(null)
+const availableVoices = ref<SpeechSynthesisVoice[]>([])
+const selectedVoice = ref<string>('')
+
+// 语调配置：不同情绪类型对应不同的语调参数
 const emotionScenes = [
   {
     type: '连跪烦躁',
@@ -309,6 +412,16 @@ const handleSend = async () => {
     // 更新情绪状态
     updateEmotionStatus(fullContent)
     
+    // 语音朗读回复 - 使用setTimeout确保在用户交互之后播放
+    if (fullContent && voiceEnabled.value) {
+      const currentEmotionType = chatStore.currentEmotion.type || '失落'
+      console.log('准备播放语音, 情绪类型:', currentEmotionType)
+      // 延迟播放,确保在用户交互之后
+      setTimeout(() => {
+        speakText(fullContent, currentEmotionType)
+      }, 500)
+    }
+    
     ElMessage.success('情绪疏导完成')
   } catch (error) {
     console.error('情绪分析失败:', error)
@@ -359,6 +472,158 @@ const getEmotionColor = (level: number): string => {
   if (level >= 6) return '#D29922'
   if (level >= 4) return '#388BFD'
   return '#2EA043'
+}
+
+// 语音相关函数
+const speakText = async (text: string, emotionType: string = '失落') => {
+  if (!voiceEnabled.value || !text || !('speechSynthesis' in window)) {
+    if (!('speechSynthesis' in window)) {
+      ElMessage.error('您的浏览器不支持语音合成功能')
+    }
+    return
+  }
+
+  // 停止当前播放
+  stopSpeaking()
+
+  try {
+    isSpeaking.value = true
+    console.log('开始播放语音, 情绪类型:', emotionType)
+
+    // 创建语音合成实例
+    const utterance = new SpeechSynthesisUtterance(text)
+    currentSpeechUtterance.value = utterance
+
+    // 设置语音
+    if (selectedVoice.value) {
+      const voice = availableVoices.value.find(v => v.name === selectedVoice.value)
+      if (voice) {
+        utterance.voice = voice
+      }
+    }
+
+    // 根据情绪类型调整语速和音调
+    const emotionParams = getEmotionSpeechParams(emotionType)
+    utterance.rate = speechRate.value * emotionParams.rate
+    utterance.pitch = emotionParams.pitch
+    utterance.volume = speechVolume.value
+
+    utterance.onstart = () => {
+      console.log('语音开始播放')
+    }
+
+    utterance.onend = () => {
+      isSpeaking.value = false
+      currentSpeechUtterance.value = null
+      console.log('语音播放完成')
+    }
+
+    utterance.onerror = (error) => {
+      console.error('语音合成错误:', error)
+      isSpeaking.value = false
+      currentSpeechUtterance.value = null
+      ElMessage.warning('语音播放失败,请重试')
+    }
+
+    // 播放语音
+    window.speechSynthesis.speak(utterance)
+
+  } catch (error) {
+    console.error('语音合成失败:', error)
+    isSpeaking.value = false
+    ElMessage.error(`语音播放失败: ${error instanceof Error ? error.message : '未知错误'}`)
+  }
+}
+
+const stopSpeaking = () => {
+  if (currentSpeechUtterance.value) {
+    window.speechSynthesis.cancel()
+    currentSpeechUtterance.value = null
+  }
+  isSpeaking.value = false
+}
+
+const toggleVoice = () => {
+  voiceEnabled.value = !voiceEnabled.value
+  if (!voiceEnabled.value) {
+    stopSpeaking()
+  }
+  ElMessage.success(voiceEnabled.value ? '语音朗读已开启' : '语音朗读已关闭')
+}
+
+const testVoice = async () => {
+  try {
+    isSpeaking.value = true
+    const testText = '你好，我是青莲剑仙，很高兴为您服务。这是语音测试。'
+
+    const utterance = new SpeechSynthesisUtterance(testText)
+    currentSpeechUtterance.value = utterance
+
+    // 设置语音
+    if (selectedVoice.value) {
+      const voice = availableVoices.value.find(v => v.name === selectedVoice.value)
+      if (voice) {
+        utterance.voice = voice
+      }
+    }
+
+    utterance.rate = speechRate.value
+    utterance.pitch = 1.0
+    utterance.volume = speechVolume.value
+
+    utterance.onend = () => {
+      isSpeaking.value = false
+      currentSpeechUtterance.value = null
+      ElMessage.success('语音测试完成')
+    }
+
+    utterance.onerror = () => {
+      isSpeaking.value = false
+      currentSpeechUtterance.value = null
+      ElMessage.error('语音测试失败')
+    }
+
+    window.speechSynthesis.speak(utterance)
+
+  } catch (error) {
+    console.error('语音测试失败:', error)
+    isSpeaking.value = false
+    ElMessage.error('语音测试失败')
+  }
+}
+
+// 根据情绪获取语音参数
+const getEmotionSpeechParams = (emotionType: string) => {
+  const params: Record<string, { rate: number, pitch: number }> = {
+    '烦躁': { rate: 0.9, pitch: 0.9 },
+    '自责': { rate: 0.95, pitch: 1.0 },
+    '绝望': { rate: 0.85, pitch: 0.95 },
+    '委屈': { rate: 0.95, pitch: 1.1 },
+    '紧张': { rate: 1.05, pitch: 1.15 },
+    '喜悦': { rate: 1.1, pitch: 1.2 },
+    '失落': { rate: 0.9, pitch: 0.9 },
+    '缓解': { rate: 1.0, pitch: 1.0 },
+    '平静': { rate: 1.0, pitch: 1.0 }
+  }
+
+  return params[emotionType] || params['缓解']
+}
+
+// 加载可用语音
+const loadVoices = () => {
+  const voices = window.speechSynthesis.getVoices()
+  availableVoices.value = voices
+
+  // 优先选择中文语音
+  const chineseVoice = voices.find(v => v.lang.includes('zh'))
+  if (chineseVoice && !selectedVoice.value) {
+    selectedVoice.value = chineseVoice.name
+  }
+
+  console.log('可用语音数量:', voices.length)
+  voices.forEach((voice, index) => {
+    console.log(`${index + 1}. ${voice.name} (${voice.lang})`)
+  })
 }
 
 // 更新情绪状态
@@ -418,6 +683,25 @@ const loadEmotionHistory = async () => {
 
 onMounted(() => {
   loadEmotionHistory()
+
+  // 加载可用语音
+  if ('speechSynthesis' in window) {
+    // 首次加载
+    loadVoices()
+
+    // 监听语音列表变化（某些浏览器语音是异步加载的）
+    window.speechSynthesis.onvoiceschanged = loadVoices
+  }
+})
+
+onBeforeUnmount(() => {
+  // 组件卸载时停止语音播放
+  stopSpeaking()
+
+  // 移除语音变化监听
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = null
+  }
 })
 </script>
 

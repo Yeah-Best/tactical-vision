@@ -5,6 +5,8 @@ FastAPI主应用文件
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
+from app.database import ensure_database_schema
+
 
 
 def create_app() -> FastAPI:
@@ -14,6 +16,9 @@ def create_app() -> FastAPI:
         description="电竞对局复盘与心态指导智能体",
         version="1.0.0"
     )
+
+    ensure_database_schema()
+
 
     # CORS配置
     app.add_middleware(
@@ -25,10 +30,12 @@ def create_app() -> FastAPI:
     )
 
     # 注册路由
-    from app.routers import review, emotion, mindset
+    from app.routers import review, emotion, mindset, tts, game_version
     app.include_router(review.router, prefix="/api/review", tags=["对局复盘"])
     app.include_router(emotion.router, prefix="/api/emotion", tags=["情绪疏导"])
     app.include_router(mindset.router, prefix="/api/mindset", tags=["心态管理"])
+    app.include_router(tts.router, prefix="/api/tts", tags=["语音合成"])
+    app.include_router(game_version.router, prefix="/api/game-version", tags=["游戏版本"])
 
     @app.get("/")
     async def root():

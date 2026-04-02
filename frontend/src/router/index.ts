@@ -13,7 +13,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/review',
     name: 'Review',
-    component: () => import('../views/ReviewView.vue'),
+    component: () => import('../views/ReviewView.vue').catch(() => import('../views/EmotionView.vue')),
     meta: {
       title: '对局复盘',
       icon: 'swords'
@@ -22,7 +22,10 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/emotion',
     name: 'Emotion',
-    component: () => import('../views/EmotionView.vue'),
+    component: () => import('../views/EmotionView.vue').catch(err => {
+      console.error('Failed to load EmotionView:', err)
+      return Promise.reject(err)
+    }),
     meta: {
       title: '情绪疏导',
       icon: 'heart'
@@ -45,7 +48,8 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
+
   // 设置页面标题
   document.title = `${to.meta.title as string} - 战术视界`
   next()

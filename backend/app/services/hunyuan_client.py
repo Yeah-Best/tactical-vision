@@ -241,20 +241,53 @@ class HunyuanClient:
     ) -> AsyncGenerator[str, None]:
         """
         对局复盘分析（流式）
-        直接将玩家描述传递给腾讯元器，不添加任何系统提示或模板
+        将版本知识库检索结果作为上下文注入到元器提示词中。
         """
-        # 直接传递玩家的游戏描述
+        game_type = game_data.get('game_type', '')
+        game_result = game_data.get('game_result', '')
+        kda = game_data.get('kda', '')
         game_description = game_data.get('game_description', '')
-        
+        game_version = game_data.get('game_version') or settings.GAME_DEFAULT_VERSION_LABEL
+        team_composition = '、'.join(game_data.get('team_composition', []) or []) or '未提供'
+        enemy_composition = '、'.join(game_data.get('enemy_composition', []) or []) or '未提供'
+        detected_champions = '、'.join(game_data.get('detected_champions', []) or []) or '未识别'
+        rag_context = game_data.get('rag_context', '当前知识库暂无可用版本情报。')
+
+        prompt = f"""
+你是《战术视界》的电竞复盘分析助手，需要结合当前版本知识库输出专业、可信、可执行的复盘建议。
+
+请严格遵守以下要求：
+1. 开头必须明确写出“基于当前 {game_version} 版本更新与统计情报...”。
+2. 必须优先引用我提供的【当前版本情报上下文】来判断阵容强势点、弱势点、克制关系与版本倾向。
+3. 如果知识库没有直接命中某个英雄或关系，要明确说“当前版本知识库暂无直接命中”，不要编造。
+4. 回复结构尽量包含：版本判断、阵容强弱势、关键失误复盘、下一把优化建议。
+5. 语言保持专业、简洁，适当保留项目的李白风格，但不要过度文绉绉。
+
+【当前版本情报上下文】
+{rag_context}
+
+【玩家对局信息】
+- 游戏类型：{game_type}
+- 对局结果：{game_result}
+- KDA：{kda or '未提供'}
+- 我方阵容：{team_composition}
+- 敌方阵容：{enemy_composition}
+- 从描述中识别到的英雄：{detected_champions}
+- 对局描述：{game_description}
+
+请基于以上信息直接开始复盘。
+""".strip()
+
         messages = [
             {
                 "role": "user",
-                "content": game_description
+                "content": prompt
             }
         ]
 
-        async for chunk in self.chat_completions_stream(messages, temperature=0.7):
+        async for chunk in self.chat_completions_stream(messages, temperature=0.6):
             yield chunk
+
 
 # 全局客户端实例
 hunyuan_client = HunyuanClient()

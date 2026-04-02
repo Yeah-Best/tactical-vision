@@ -27,10 +27,14 @@ class ReviewHistory(Base):
     game_type = Column(String(100), nullable=False)
     game_result = Column(String(20), nullable=False)
     kda = Column(String(50))
+    game_version = Column(String(50))
+    team_composition = Column(JSON)
+    enemy_composition = Column(JSON)
     game_description = Column(Text, nullable=False)
     review_report = Column(Text, nullable=False)
     player_feedback = Column(String(20))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 
 
 class PlayerProfile(Base):
