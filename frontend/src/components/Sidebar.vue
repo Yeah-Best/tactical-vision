@@ -16,6 +16,49 @@
       </p>
     </div>
 
+    <!-- 用户信息卡片 -->
+    <div class="p-4 border-b border-border">
+      <div class="bg-gradient-to-br from-bg-dark to-bg-light rounded-xl p-4 border border-border">
+        <div class="flex items-center space-x-3 mb-3">
+          <!-- 用户头像 -->
+          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-gold-primary to-gold-light flex items-center justify-center flex-shrink-0">
+            <span class="text-lg font-bold text-white">{{ userStore.user.nickname?.charAt(0) || '玩' }}</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <!-- 用户昵称 -->
+            <h3 class="text-sm font-bold text-text-primary truncate">{{ userStore.user.nickname }}</h3>
+            <!-- 游戏段位 -->
+            <p class="text-xs text-gold-primary">{{ userStore.user.gameRank || '未设置段位' }}</p>
+          </div>
+          <!-- 用户等级 -->
+          <div class="text-right flex-shrink-0">
+            <div class="text-xs text-text-secondary">等级</div>
+            <div class="text-lg font-bold text-gold-primary">{{ userStore.user.level }}</div>
+          </div>
+        </div>
+
+        <!-- 统计数据 -->
+        <div class="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-border">
+          <div>
+            <div class="text-xs text-text-secondary">总场次</div>
+            <div class="text-base font-bold text-text-primary">{{ userStore.user.totalGames }}</div>
+          </div>
+          <div>
+            <div class="text-xs text-text-secondary">胜率</div>
+            <div class="text-base font-bold text-gold-primary">{{ userStore.user.winRate }}%</div>
+          </div>
+        </div>
+
+        <!-- 编辑按钮 -->
+        <button
+          @click="showUserEditDialog"
+          class="w-full mt-3 py-2 px-4 rounded-lg bg-gradient-to-r from-gold-primary to-gold-light text-white text-sm font-medium hover:shadow-md transition-all duration-300"
+        >
+          编辑资料
+        </button>
+      </div>
+    </div>
+
     <!-- 导航菜单 -->
     <nav class="p-4">
       <router-link
@@ -45,6 +88,48 @@
         </p>
       </div>
     </div>
+
+    <!-- 用户编辑对话框 -->
+    <ElDialog
+      v-model="showUserEdit"
+      title="编辑个人资料"
+      width="400px"
+      :close-on-click-modal="false"
+    >
+      <ElForm :model="userForm" label-width="80px">
+        <ElFormItem label="昵称">
+          <ElInput v-model="userForm.nickname" placeholder="请输入昵称" />
+        </ElFormItem>
+        <ElFormItem label="游戏段位">
+          <ElInput v-model="userForm.gameRank" placeholder="例如：荣耀王者" />
+        </ElFormItem>
+        <ElFormItem label="等级">
+          <ElInputNumber v-model="userForm.level" :min="1" :max="100" controls-position="right" />
+        </ElFormItem>
+        <ElFormItem label="总场次">
+          <ElInputNumber v-model="userForm.totalGames" :min="0" controls-position="right" />
+        </ElFormItem>
+        <ElFormItem label="胜率 (%)">
+          <ElInputNumber v-model="userForm.winRate" :min="0" :max="100" :precision="1" controls-position="right" />
+        </ElFormItem>
+      </ElForm>
+      <template #footer>
+        <span class="dialog-footer">
+          <button
+            @click="handleUserCancel"
+            class="px-4 py-2 rounded-lg border border-border text-text-secondary hover:bg-bg-dark mr-2"
+          >
+            取消
+          </button>
+          <button
+            @click="handleUserUpdate"
+            class="px-4 py-2 rounded-lg bg-gradient-to-r from-gold-primary to-gold-light text-white hover:shadow-md"
+          >
+            保存
+          </button>
+        </span>
+      </template>
+    </ElDialog>
   </aside>
 </template>
 
@@ -57,9 +142,43 @@ import {
   Calendar as MindsetIcon
 } from '@element-plus/icons-vue'
 import { useChatStore } from '../stores/chat'
+import { useUserStore } from '../stores/user'
+import { ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber } from 'element-plus'
+import { ref } from 'vue'
 
 const route = useRoute()
 const chatStore = useChatStore()
+const userStore = useUserStore()
+
+// 用户编辑对话框
+const showUserEdit = ref(false)
+const userForm = ref({
+  nickname: '',
+  gameRank: '',
+  level: 0,
+  totalGames: 0,
+  winRate: 0
+})
+
+const showUserEditDialog = () => {
+  userForm.value = {
+    nickname: userStore.user.nickname,
+    gameRank: userStore.user.gameRank || '',
+    level: userStore.user.level,
+    totalGames: userStore.user.totalGames,
+    winRate: userStore.user.winRate
+  }
+  showUserEdit.value = true
+}
+
+const handleUserUpdate = () => {
+  userStore.updateUser(userForm.value)
+  showUserEdit.value = false
+}
+
+const handleUserCancel = () => {
+  showUserEdit.value = false
+}
 
 const menuItems = [
   {

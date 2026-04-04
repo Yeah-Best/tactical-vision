@@ -11,6 +11,7 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urljoin
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from app.config import settings
 
@@ -401,21 +402,26 @@ class HonorKingsKnowledgeService(BaseGameKnowledgeService):
             return []
 
     def _fetch_counters(self, champion_mappings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """真正抓取王者荣耀官网英雄详情页的克制关系"""
+        """真正抓取王者荣耀官网英雄详情页的克制关系（多线程并发版）"""
         results = []
-        # 控制并发或抓取数量防止被限制
-        logger.info("开始深入抓取官网英雄克制关系，预计需要几十秒时间...")
+        logger.info("开始多线程抓取官网英雄克制关系，大幅提升速度...")
         
-        for hero in champion_mappings:
+        # 引入 Python 的并发线程池
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def fetch_single_hero(hero):
             hero_id = hero.get("champion_id")
             hero_name = hero.get("chinese_name")
             if not hero_id:
-                continue
-
+                return None
+                
             try:
                 # 真实访问官网的单个英雄详情页
                 detail_url = f"https://pvp.qq.com/web201605/herodetail/{hero_id}.shtml"
-                response = self.http.get(detail_url, timeout=5)
+                
+                # 注意：多线程下为了安全，直接使用局部的 requests 请求，并复用原来的 headers
+                import requests
+                response = requests.get(detail_url, headers=self.http.headers, timeout=5)
                 response.encoding = 'gbk'
                 soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -439,18 +445,30 @@ class HonorKingsKnowledgeService(BaseGameKnowledgeService):
                         if hero_text:
                             countered_by_list.append(hero_text)
 
-                results.append({
+                return {
                     "hero": hero_name,
                     "hero_cn": hero_name,
                     "hero_en": hero["english_name"],
                     "counters": counters_list,
                     "countered_by": countered_by_list,
                     "source_url": detail_url,
-                })
+                }
             except Exception as e:
                 logger.warning(f"抓取 {hero_name} 真实克制关系失败: {e}")
+                return None
 
-        logger.info("完成真实抓取，共获取 %d 个英雄的克制关系", len(results))
+        # 使用最大 10 个线程并发抓取（设为10是为了兼顾速度，同时防止被腾讯反爬虫机制封禁 IP）
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            # 批量提交所有英雄的抓取任务
+            future_to_hero = {executor.submit(fetch_single_hero, hero): hero for hero in champion_mappings}
+            
+            # 等待并收集抓取结果
+            for future in as_completed(future_to_hero):
+                res = future.result()
+                if res:
+                    results.append(res)
+
+        logger.info("完成多线程真实抓取，共获取 %d 个英雄的克制关系", len(results))
         return results
 
     def load_snapshot(self) -> Optional[Dict[str, Any]]:

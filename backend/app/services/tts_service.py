@@ -155,13 +155,15 @@ class TTSService:
         params = self.get_emotion_voice_params(emotion_type)
 
         # 调整音量 - 确保总是有有效的音量参数
+        # 调整音量 - 确保总是有有效的音量参数
         if volume_adjust != 1.0:
             vol_percent = int((volume_adjust - 1.0) * 100)
-            base_volume = int(params['volume'].replace('%', '').replace('+', '').replace('-', ''))
+            # 【修正】：只去掉 '%' 号，保留正负号，让 Python 自动解析
+            base_volume = int(params['volume'].replace('%', '')) 
             total_volume = base_volume + vol_percent
             # 限制音量范围在 -50% 到 +50% 之间
             total_volume = max(-50, min(50, total_volume))
-            params['volume'] = f"{total_volume:+d}%"
+            params['volume'] = f"{total_volume:+d}%"  # :+d 会强制输出带符号的整数 (+5 或 -5)
 
         return await self.text_to_speech(
             text=text,

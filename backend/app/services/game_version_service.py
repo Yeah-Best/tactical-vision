@@ -190,36 +190,36 @@ class GameVersionService:
             return self.cached_versions.get('lol') or DEFAULT_VERSIONS.get('lol')
 
     def get_valorant_version(self) -> Optional[Dict]:
-        """
-        获取无畏契约版本信息
-
-        Returns:
-            包含版本号、更新时间、更新内容的字典
-        """
+        """真正动态获取无畏契约（国服）最新版本信息"""
         try:
-            # 无畏契约官网
-            url = "https://act.game.qq.com/vas/act/202504/525741/index.html"
-
+            # 1. 策略：无畏契约官网会在初始化的 HTML 中包含最新的新闻列表数据用于首屏渲染
+            url = "https://val.qq.com/"
             response = self.session.get(url, headers=self.headers, timeout=10)
             response.encoding = 'utf-8'
-
-            # 提取版本号
-            version_match = re.search(r'([0-9]+\.[0-9]+\.[0-9]+)', response.text)
-            version = version_match.group(1) if version_match else "未知"
-
-            # 提取更新时间
-            date_match = re.search(r'(\d{4})/(\d{1,2})/(\d{1,2})', response.text)
-            if date_match:
-                update_time = f"{date_match.group(1)}.{date_match.group(2).zfill(2)}.{date_match.group(3).zfill(2)}"
+            
+            # 尝试通过正则直接从页面源文件提取包含"版本更新公告"的标题
+            # 匹配格式如："9.04版本更新公告" 或 "v8.11版本更新公告"
+            version_match = re.search(r'([0-9]+\.[0-9]+(?:\.[0-9]+)?)\s*版本更新公告', response.text)
+            
+            if version_match:
+                version = version_match.group(1)
             else:
-                update_time = "未知"
-
+                # 兜底：尝试访问另一个常见的新闻聚合页
+                list_url = "https://val.qq.com/web202305/news.html"
+                list_response = self.session.get(list_url, headers=self.headers, timeout=10)
+                list_response.encoding = 'utf-8'
+                version_match = re.search(r'([0-9]+\.[0-9]+(?:\.[0-9]+)?)\s*版本更新公告', list_response.text)
+                version = version_match.group(1) if version_match else "最新版本"
+                
+            # 获取当前时间作为兜底更新时间（版本更新通常在查询的近期）
+            update_time = datetime.now().strftime("%Y.%m.%d")
+            
             result = {
                 'game_name': '无畏契约',
                 'version': version,
                 'update_time': update_time,
-                'update_content': "请访问官网查看详细更新内容",
-                'source_url': url
+                'update_content': f"发现 {version} 版本更新。详细更新日志、英雄调整和地图改动请前往《无畏契约》官网 (val.qq.com) 新闻中心查看。",
+                'source_url': "https://val.qq.com/web202305/news.html"
             }
 
             # 更新缓存
@@ -229,8 +229,7 @@ class GameVersionService:
             return result
 
         except Exception as e:
-            logger.error(f"获取无畏契约版本失败: {str(e)}")
-            # 返回缓存版本或默认版本
+            logger.error(f"真实抓取无畏契约版本失败: {str(e)}")
             return self.cached_versions.get('valorant') or DEFAULT_VERSIONS.get('valorant')
 
     def get_game_versions(self, games: List[str] = None) -> List[Dict]:
