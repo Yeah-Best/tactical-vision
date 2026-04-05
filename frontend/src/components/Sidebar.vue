@@ -66,8 +66,11 @@
       title="个人资料"
       width="420px"
       :close-on-click-modal="false"
-      :z-index="9999"
+      :z-index="20000"
+      :modal="true"
+      :lock-scroll="true"
       class="user-profile-dialog"
+      append-to-body
     >
       <div class="profile-content">
         <!-- 用户头像 -->
@@ -113,7 +116,10 @@
       title="编辑个人资料"
       width="420px"
       :close-on-click-modal="false"
-      :z-index="10000"
+      :z-index="20001"
+      :modal="true"
+      :lock-scroll="true"
+      append-to-body
     >
       <ElForm :model="userForm" label-width="80px">
         <ElFormItem label="昵称">
@@ -410,15 +416,45 @@ const emotionQuote = computed(() => {
 }
 
 /* 确保弹窗在最上层 */
-:deep(.el-dialog) {
+.user-profile-dialog :deep(.el-dialog) {
+  position: fixed !important;
+  z-index: 20000 !important;
+}
+
+.user-profile-dialog :deep(.el-dialog__wrapper) {
+  z-index: 20000 !important;
   position: fixed !important;
 }
 
+.user-profile-dialog :deep(.el-overlay) {
+  z-index: 19999 !important;
+  position: fixed !important;
+}
+
+/* 编辑弹窗也设置更高层级 */
 :deep(.el-dialog__wrapper) {
-  z-index: 9999 !important;
+  z-index: 20001 !important;
+  position: fixed !important;
 }
 
 :deep(.el-overlay) {
-  z-index: 9998 !important;
+  z-index: 20000 !important;
+  position: fixed !important;
+}
+
+/* 确保弹窗内容在最上层 */
+:deep(.el-dialog__body) {
+  z-index: 20002 !important;
+  position: relative !important;
+}
+
+:deep(.el-dialog__header) {
+  z-index: 20002 !important;
+  position: relative !important;
+}
+
+:deep(.el-dialog__footer) {
+  z-index: 20002 !important;
+  position: relative !important;
 }
 </style>
