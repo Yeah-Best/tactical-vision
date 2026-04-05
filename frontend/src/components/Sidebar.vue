@@ -6,7 +6,7 @@
         <!-- 用户头像（点击可查看详细信息） -->
         <div
           class="w-16 h-16 rounded-full bg-gradient-to-br from-gold-primary to-gold-light flex items-center justify-center animate-float shadow-lg cursor-pointer hover:scale-110 transition-transform"
-          @click="showUserProfile"
+          @click="showUserProfileDialog"
           title="点击查看个人资料"
         >
           <span class="text-2xl font-bold text-white">{{ userStore.user.nickname?.charAt(0) || '李' }}</span>
