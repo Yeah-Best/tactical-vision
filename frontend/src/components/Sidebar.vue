@@ -3,8 +3,13 @@
     <!-- Logo和角色展示 -->
     <div class="p-6 border-b border-border">
       <div class="flex items-center space-x-4">
-        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-gold-primary to-gold-light flex items-center justify-center animate-float shadow-lg">
-          <span class="text-2xl font-bold text-white">李</span>
+        <!-- 用户头像（点击可查看详细信息） -->
+        <div
+          class="w-16 h-16 rounded-full bg-gradient-to-br from-gold-primary to-gold-light flex items-center justify-center animate-float shadow-lg cursor-pointer hover:scale-110 transition-transform"
+          @click="showUserProfile"
+          title="点击查看个人资料"
+        >
+          <span class="text-2xl font-bold text-white">{{ userStore.user.nickname?.charAt(0) || '李' }}</span>
         </div>
         <div>
           <h1 class="text-xl font-bold text-text-primary">战术视界</h1>
@@ -14,49 +19,6 @@
       <p class="mt-4 text-sm text-text-secondary italic">
         "一篇诗，一斗酒，一曲长歌，一剑天涯。"
       </p>
-    </div>
-
-    <!-- 用户信息卡片 -->
-    <div class="p-4 border-b border-border">
-      <div class="bg-gradient-to-br from-bg-dark to-bg-light rounded-xl p-4 border border-border">
-        <div class="flex items-center space-x-3 mb-3">
-          <!-- 用户头像 -->
-          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-gold-primary to-gold-light flex items-center justify-center flex-shrink-0">
-            <span class="text-lg font-bold text-white">{{ userStore.user.nickname?.charAt(0) || '玩' }}</span>
-          </div>
-          <div class="flex-1 min-w-0">
-            <!-- 用户昵称 -->
-            <h3 class="text-sm font-bold text-text-primary truncate">{{ userStore.user.nickname }}</h3>
-            <!-- 游戏段位 -->
-            <p class="text-xs text-gold-primary">{{ userStore.user.gameRank || '未设置段位' }}</p>
-          </div>
-          <!-- 用户等级 -->
-          <div class="text-right flex-shrink-0">
-            <div class="text-xs text-text-secondary">等级</div>
-            <div class="text-lg font-bold text-gold-primary">{{ userStore.user.level }}</div>
-          </div>
-        </div>
-
-        <!-- 统计数据 -->
-        <div class="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-border">
-          <div>
-            <div class="text-xs text-text-secondary">总场次</div>
-            <div class="text-base font-bold text-text-primary">{{ userStore.user.totalGames }}</div>
-          </div>
-          <div>
-            <div class="text-xs text-text-secondary">胜率</div>
-            <div class="text-base font-bold text-gold-primary">{{ userStore.user.winRate }}%</div>
-          </div>
-        </div>
-
-        <!-- 编辑按钮 -->
-        <button
-          @click="showUserEditDialog"
-          class="w-full mt-3 py-2 px-4 rounded-lg bg-gradient-to-r from-gold-primary to-gold-light text-white text-sm font-medium hover:shadow-md transition-all duration-300"
-        >
-          编辑资料
-        </button>
-      </div>
     </div>
 
     <!-- 导航菜单 -->
@@ -89,12 +51,69 @@
       </div>
     </div>
 
-    <!-- 用户编辑对话框 -->
+    <!-- 角色语录 -->
+    <div class="absolute bottom-6 left-6 right-6">
+      <div class="bg-bg-dark rounded-xl p-4 border border-border">
+        <p class="text-sm italic" :style="{ color: chatStore.currentEmotion.color }">
+          "{{ emotionQuote }}"
+        </p>
+      </div>
+    </div>
+
+    <!-- 用户资料弹窗 -->
+    <ElDialog
+      v-model="showUserProfile"
+      title="个人资料"
+      width="420px"
+      :close-on-click-modal="false"
+      :z-index="9999"
+      class="user-profile-dialog"
+    >
+      <div class="profile-content">
+        <!-- 用户头像 -->
+        <div class="profile-header">
+          <div class="profile-avatar">
+            <span class="text-3xl font-bold text-white">{{ userStore.user.nickname?.charAt(0) || '玩' }}</span>
+          </div>
+          <div class="profile-info">
+            <h3 class="profile-name">{{ userStore.user.nickname }}</h3>
+            <p class="profile-rank">{{ userStore.user.gameRank || '未设置段位' }}</p>
+          </div>
+          <div class="profile-level">
+            <div class="level-label">等级</div>
+            <div class="level-value">{{ userStore.user.level }}</div>
+          </div>
+        </div>
+
+        <!-- 统计数据 -->
+        <div class="profile-stats">
+          <div class="stat-item">
+            <div class="stat-label">总场次</div>
+            <div class="stat-value">{{ userStore.user.totalGames }}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">胜率</div>
+            <div class="stat-value">{{ userStore.user.winRate }}%</div>
+          </div>
+        </div>
+
+        <!-- 编辑按钮 -->
+        <button
+          @click="showUserEditDialog"
+          class="edit-btn"
+        >
+          编辑资料
+        </button>
+      </div>
+    </ElDialog>
+
+    <!-- 用户编辑弹窗 -->
     <ElDialog
       v-model="showUserEdit"
       title="编辑个人资料"
-      width="400px"
+      width="420px"
       :close-on-click-modal="false"
+      :z-index="10000"
     >
       <ElForm :model="userForm" label-width="80px">
         <ElFormItem label="昵称">
@@ -117,13 +136,13 @@
         <span class="dialog-footer">
           <button
             @click="handleUserCancel"
-            class="px-4 py-2 rounded-lg border border-border text-text-secondary hover:bg-bg-dark mr-2"
+            class="cancel-btn"
           >
             取消
           </button>
           <button
             @click="handleUserUpdate"
-            class="px-4 py-2 rounded-lg bg-gradient-to-r from-gold-primary to-gold-light text-white hover:shadow-md"
+            class="save-btn"
           >
             保存
           </button>
@@ -150,7 +169,10 @@ const route = useRoute()
 const chatStore = useChatStore()
 const userStore = useUserStore()
 
-// 用户编辑对话框
+// 用户资料弹窗
+const showUserProfile = ref(false)
+
+// 用户编辑弹窗
 const showUserEdit = ref(false)
 const userForm = ref({
   nickname: '',
@@ -160,7 +182,12 @@ const userForm = ref({
   winRate: 0
 })
 
+const showUserProfileDialog = () => {
+  showUserProfile.value = true
+}
+
 const showUserEditDialog = () => {
+  showUserProfile.value = false
   userForm.value = {
     nickname: userStore.user.nickname,
     gameRank: userStore.user.gameRank || '',
@@ -174,10 +201,12 @@ const showUserEditDialog = () => {
 const handleUserUpdate = () => {
   userStore.updateUser(userForm.value)
   showUserEdit.value = false
+  showUserProfile.value = true
 }
 
 const handleUserCancel = () => {
   showUserEdit.value = false
+  showUserProfile.value = true
 }
 
 const menuItems = [
@@ -239,4 +268,157 @@ const emotionQuote = computed(() => {
 </script>
 
 <style scoped>
+/* 用户资料弹窗样式 */
+.profile-content {
+  padding: 0;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.profile-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d4af37 0%, #ffd700 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+}
+
+.profile-info {
+  flex: 1;
+  min-width: 0;
+  padding: 0 12px;
+}
+
+.profile-name {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+  margin: 0 0 4px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-rank {
+  font-size: 14px;
+  color: #d4af37;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-level {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.level-label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 2px;
+}
+
+.level-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #d4af37;
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 16px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: #333;
+}
+
+.edit-btn {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #d4af37 0%, #ffd700 100%);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.edit-btn:hover {
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
+  transform: translateY(-2px);
+}
+
+.cancel-btn {
+  padding: 8px 16px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background: white;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background: #f5f5f5;
+}
+
+.save-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #d4af37 0%, #ffd700 100%);
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.save-btn:hover {
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.4);
+}
+
+/* 确保弹窗在最上层 */
+:deep(.el-dialog) {
+  position: fixed !important;
+}
+
+:deep(.el-dialog__wrapper) {
+  z-index: 9999 !important;
+}
+
+:deep(.el-overlay) {
+  z-index: 9998 !important;
+}
 </style>
