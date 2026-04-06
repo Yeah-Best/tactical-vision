@@ -12,6 +12,16 @@ engine = create_engine(
     connect_args={"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}
 )
 
+# 【新增】：当连接建立时，开启 SQLite 的并发高能模式 WAL
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    if settings.DATABASE_URL.startswith("sqlite"):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")       # 开启 WAL 模式
+        cursor.execute("PRAGMA synchronous=NORMAL")     # 降低同步级别，提速
+        cursor.execute("PRAGMA busy_timeout=5000")      # 遇到锁时等待5秒而不是直接报错
+        cursor.close()
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

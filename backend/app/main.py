@@ -4,17 +4,28 @@ FastAPI主应用文件
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
+from contextlib import asynccontextmanager
+
 from app.config import settings
 from app.database import ensure_database_schema
+from app.services.game_knowledge_manager import game_knowledge_manager
 
-
+# 新增：生命周期管理器，在 FastAPI 启动时执行预热
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动时：丢入后台线程执行知识库预热，不阻塞服务启动
+    print("🚀 正在后台预热游戏知识库...")
+    asyncio.create_task(asyncio.to_thread(game_knowledge_manager.ensure_knowledge_base))
+    yield
+    # 关闭时：可以在这里写清理逻辑
 
 def create_app() -> FastAPI:
-    """创建FastAPI应用实例"""
     app = FastAPI(
         title="战术视界API",
         description="电竞对局复盘与心态指导智能体",
-        version="1.0.0"
+        version="1.0.0",
+        lifespan=lifespan  # 绑定生命周期
     )
 
     ensure_database_schema()

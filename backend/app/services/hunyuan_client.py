@@ -1,12 +1,12 @@
 """
 腾讯混元大模型客户端封装
-支持流式和非流式ChatCompletions接口调用
+支持流式和非流式ChatCompletions接口调用 (基于 httpx 全异步实现)
 """
 
 import asyncio
 import json
 import logging
-import requests
+import httpx
 from typing import List, Dict, Any, AsyncGenerator
 from ..config import settings
 
@@ -39,8 +39,14 @@ class HunyuanClient:
             temperature: float = 0.7
     ) -> str:
         """
-        调用腾讯元器智能体ChatCompletions接口
+        调用腾讯元器智能体ChatCompletions接口 (完全异步)
         """
+        # 【容灾机制】判断是否处于模拟模式，断网演示必用
+        if getattr(settings, 'SIMULATE_MODE', False):
+            logger.info("模拟模式已开启，返回非流式模拟数据。")
+            await asyncio.sleep(1) # 模拟网络延迟
+            return "【模拟模式运行中】这是一段预设的复盘分析/对话回复。当前系统与外部大模型的网络通信已隔离，以保障比赛演示稳定。"
+
         try:
             # 检查必要的配置
             if not self.assistant_id:
@@ -51,14 +57,14 @@ class HunyuanClient:
             # 构建请求负载
             formatted_messages = []
             for msg in messages:
-                # 【修改点 1】去掉 system 角色，如果有 system，直接跳过或者这里你已经在别处处理了
+                # 去掉 system 角色
                 role = msg.get("role", "user")
                 if role == "system":
-                    continue # 智能体不需要系统角色
+                    continue 
                     
                 content = msg.get("content", "")
                 
-                # 【修改点 2】腾讯元器 Agent API 要求 content 必须是带有 type 的对象数组
+                # 腾讯元器 Agent API 要求 content 必须是带有 type 的对象数组
                 formatted_messages.append({
                     "role": role,
                     "content": [
@@ -71,7 +77,7 @@ class HunyuanClient:
             
             payload = {
                 "assistant_id": self.assistant_id,
-                "user_id": "default_user",  # 必须要有 user_id
+                "user_id": "default_user",
                 "stream": stream,
                 "messages": formatted_messages
             }
@@ -79,23 +85,22 @@ class HunyuanClient:
             if stream:
                 raise ValueError("流式输出请使用 chat_completions_stream 方法")
             
-            # 发送HTTP请求
-            response = requests.post(
-                self.base_url,
-                headers=self.headers,
-                json=payload,
-                timeout=settings.REQUEST_TIMEOUT
-            )
-            response.raise_for_status()
+            # 发送完全异步的 HTTP 请求
+            async with httpx.AsyncClient(timeout=settings.REQUEST_TIMEOUT) as client:
+                response = await client.post(
+                    self.base_url,
+                    headers=self.headers,
+                    json=payload
+                )
+                response.raise_for_status()
+                result = response.json()
             
             # 解析响应
-            result = response.json()
-            
             if "choices" in result and len(result["choices"]) > 0:
                 choice = result["choices"][0]
                 if "message" in choice and "content" in choice["message"]:
                     msg_content = choice["message"]["content"]
-                    # 【修改点 3】兼容元器返回的 content 可能是数组的情况
+                    # 兼容元器返回的 content 可能是数组的情况
                     if isinstance(msg_content, list) and len(msg_content) > 0:
                         return msg_content[0].get("text", "")
                     return msg_content
@@ -108,9 +113,12 @@ class HunyuanClient:
             logger.error(f"腾讯元器API返回异常响应: {json.dumps(result, ensure_ascii=False)}")
             return "抱歉，青莲剑仙暂时无法回应，请稍后再试。"
             
-        except requests.exceptions.RequestException as e:
-            logger.error(f"腾讯元器API调用失败: {str(e)}")
-            return "抱歉，AI服务暂时无法访问，请稍后再试。"
+        except httpx.RequestError as e:
+            logger.error(f"腾讯元器API网络请求失败: {str(e)}")
+            return "抱歉，AI服务暂时无法访问，请检查网络后再试。"
+        except httpx.HTTPStatusError as e:
+            logger.error(f"腾讯元器API返回错误状态码: {e.response.status_code}")
+            return f"抱歉，服务提供商返回错误 ({e.response.status_code})。"
         except ValueError as e:
             logger.error(f"配置错误: {str(e)}")
             return f"配置错误: {str(e)}"
@@ -124,8 +132,25 @@ class HunyuanClient:
             temperature: float = 0.7
     ) -> AsyncGenerator[str, None]:
         """
-        流式调用腾讯元器智能体ChatCompletions接口
+        流式调用腾讯元器智能体ChatCompletions接口 (完全异步)
         """
+        # 【容灾机制】模拟模式下的流式输出
+        if getattr(settings, 'SIMULATE_MODE', False):
+            logger.info("模拟模式已开启，开始流式模拟输出。")
+            simulated_chunks = [
+                "【模拟模式】",
+                "系统检测到目前处于网络隔离的比赛演示模式。",
+                "您的请求已被接收。",
+                "\n\n分析结论：\n",
+                "这是一段系统预设好的安全流式数据，",
+                "完美避开了网络延迟和阻塞风险，",
+                "确保比赛过程万无一失。"
+            ]
+            for chunk in simulated_chunks:
+                await asyncio.sleep(0.4) # 模拟打字机效果的延迟
+                yield chunk
+            return
+
         try:
             # 检查必要的配置
             if not self.assistant_id:
@@ -142,7 +167,6 @@ class HunyuanClient:
                     
                 content = msg.get("content", "")
                 
-                # 【修改点 4】同样修改流式请求的 content 结构
                 formatted_messages.append({
                     "role": role,
                     "content": [
@@ -160,53 +184,56 @@ class HunyuanClient:
                 "messages": formatted_messages
             }
             
-            # 发送流式HTTP请求
-            response = requests.post(
-                self.base_url,
-                headers=self.headers,
-                json=payload,
-                stream=True,
-                timeout=settings.REQUEST_TIMEOUT
-            )
-            response.raise_for_status()
+            # 发送异步流式 HTTP 请求
+            async with httpx.AsyncClient(timeout=settings.REQUEST_TIMEOUT) as client:
+                async with client.stream(
+                    "POST",
+                    self.base_url,
+                    headers=self.headers,
+                    json=payload
+                ) as response:
+                    response.raise_for_status()
+                    
+                    # 使用 httpx 的 aiter_lines() 异步按行读取流数据
+                    async for line in response.aiter_lines():
+                        if line:
+                            line_str = line.strip()
+                            if line_str.startswith('data: '):
+                                data_str = line_str[6:]  
+                                if data_str == '[DONE]':
+                                    break
+                                try:
+                                    data = json.loads(data_str)
+                                    if "choices" in data and len(data["choices"]) > 0:
+                                        choice = data["choices"][0]
+                                        if "delta" in choice and "content" in choice["delta"]:
+                                            delta_content = choice["delta"]["content"]
+                                            # 流式返回的也可能是数组结构，做安全解析
+                                            if isinstance(delta_content, list) and len(delta_content) > 0:
+                                                yield delta_content[0].get("text", "")
+                                            else:
+                                                yield delta_content
+                                        elif "message" in choice and "content" in choice["message"]:
+                                            msg_content = choice["message"]["content"]
+                                            if isinstance(msg_content, list) and len(msg_content) > 0:
+                                                yield msg_content[0].get("text", "")
+                                            else:
+                                                yield msg_content
+                                        elif "content" in choice:
+                                            yield choice["content"]
+                                    elif "data" in data and "content" in data["data"]:
+                                        yield data["data"]["content"]
+                                except json.JSONDecodeError:
+                                    continue
+                                except KeyError:
+                                    continue
             
-            # 解析流式响应
-            for line in response.iter_lines():
-                if line:
-                    line_str = line.decode('utf-8').strip()
-                    if line_str.startswith('data: '):
-                        data_str = line_str[6:]  
-                        if data_str == '[DONE]':
-                            break
-                        try:
-                            data = json.loads(data_str)
-                            if "choices" in data and len(data["choices"]) > 0:
-                                choice = data["choices"][0]
-                                if "delta" in choice and "content" in choice["delta"]:
-                                    delta_content = choice["delta"]["content"]
-                                    # 【修改点 5】流式返回的也可能是数组结构，做安全解析
-                                    if isinstance(delta_content, list) and len(delta_content) > 0:
-                                        yield delta_content[0].get("text", "")
-                                    else:
-                                        yield delta_content
-                                elif "message" in choice and "content" in choice["message"]:
-                                    msg_content = choice["message"]["content"]
-                                    if isinstance(msg_content, list) and len(msg_content) > 0:
-                                        yield msg_content[0].get("text", "")
-                                    else:
-                                        yield msg_content
-                                elif "content" in choice:
-                                    yield choice["content"]
-                            elif "data" in data and "content" in data["data"]:
-                                yield data["data"]["content"]
-                        except json.JSONDecodeError:
-                            continue
-                        except KeyError:
-                            continue
-            
-        except requests.exceptions.RequestException as e:
-            logger.error(f"腾讯元器流式API调用失败: {str(e)}")
-            yield "抱歉，AI服务暂时无法访问，请稍后再试。"
+        except httpx.RequestError as e:
+            logger.error(f"腾讯元器流式API网络异常: {str(e)}")
+            yield "抱歉，网络连接暂时中断，请稍后再试。"
+        except httpx.HTTPStatusError as e:
+            logger.error(f"腾讯元器流式API状态码错误: {e.response.status_code}")
+            yield f"抱歉，服务暂时不可用 (错误码: {e.response.status_code})。"
         except ValueError as e:
             logger.error(f"配置错误: {str(e)}")
             yield f"配置错误: {str(e)}"
@@ -224,7 +251,6 @@ class HunyuanClient:
         情绪分析并生成疏导内容（流式）
         直接将用户原话传递给腾讯元器，不添加任何系统提示或模板
         """
-        # 直接将用户消息传递给腾讯元器
         messages = [
             {
                 "role": "user",

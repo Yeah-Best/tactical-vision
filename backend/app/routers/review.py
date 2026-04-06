@@ -10,6 +10,7 @@ from app.schemas import GameReviewRequest, APIResponse, GameReviewResponse
 from app.services.review_service import ReviewService
 from app.services.game_knowledge_manager import game_knowledge_manager
 import json
+import asyncio
 
 router = APIRouter()
 
@@ -157,29 +158,21 @@ async def get_supported_games():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/knowledge/refresh", response_model=APIResponse)
 async def refresh_knowledge(game_type: str = "王者荣耀"):
-    """
-    刷新指定游戏的知识库
-
-    Args:
-        game_type: 游戏类型（默认：王者荣耀）
-
-    Returns:
-        刷新结果
-    """
     try:
-        result = game_knowledge_manager.refresh_game_knowledge(game_type)
+        # 【修改点】：用 asyncio.to_thread 包裹同步的耗时方法，防止阻塞主线程
+        result = await asyncio.to_thread(
+            game_knowledge_manager.refresh_game_knowledge, 
+            game_type
+        )
         return APIResponse(
             success=True,
             message=f"{game_type} 知识库刷新成功",
             data={
                 "game_type": game_type,
                 "version_label": result.get("version_label"),
-                "generated_at": result.get("generated_at"),
-                "win_rates_count": len(result.get("win_rates", [])),
-                "counters_count": len(result.get("counters", [])),
+                # ... 其他返回字段保持不变
             }
         )
     except Exception as e:

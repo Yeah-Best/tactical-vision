@@ -76,160 +76,102 @@ class GameVersionService:
         self.cached_versions = load_version_cache()
 
     def get_honor_of_kings_version(self) -> Optional[Dict]:
-        """真正动态获取王者荣耀最新版本信息"""
+        """静态返回王者荣耀版本信息（比赛专用极稳版，不依赖外部网络）"""
         try:
-            # 1. 先抓取官网版本公告的“列表页”
-            list_url = "https://pvp.qq.com/webplat/info/news_version3_list/152/1163/1737.shtml"
-            list_response = self.session.get(list_url, headers=self.headers, timeout=10)
-            list_response.encoding = 'gbk' # 王者官网一般是GBK编码
-            list_soup = BeautifulSoup(list_response.text, 'html.parser')
+            # ==========================================
+            # ⚠️ 比赛前必看：请在比赛前一晚，手动更新这里的版本号！
+            # ==========================================
+            current_version = "S43赛季" # <-- 修改为比赛当天的实际版本（如 "S35赛季 3.6.1"）
             
-            # 2. 动态寻找列表中的第一条（最新）版本更新新闻
-            latest_article_url = None
-            # 尝试匹配官网新闻列表的 a 标签
-            for a_tag in list_soup.select('a.news_txt, .news-list a, .list-item a'):
-                title = a_tag.get_text()
-                # 过滤关键字，确保是版本更新公告
-                if '更新' in title or '版本' in title or '不停机' in title:
-                    href = a_tag.get('href')
-                    if href:
-                        # 拼接完整URL
-                        latest_article_url = href if href.startswith('http') else f"https://pvp.qq.com{href}"
-                        break
-            
-            if not latest_article_url:
-                raise ValueError("未能从官网列表页提取到最新的版本公告链接")
-
-            # 3. 抓取动态获取到的最新文章正文
-            response = self.session.get(latest_article_url, headers=self.headers, timeout=10)
-            response.encoding = 'gbk'
-            soup = BeautifulSoup(response.text, 'html.parser')
-
-            # 提取版本号
-            version_match = re.search(r'[Vv]?([0-9]+\.[0-9]+\.[0-9]+|[0-9]+\.[0-9]+)', response.text)
-            version = version_match.group(1) if version_match else "最新版本"
-
-            # 提取更新时间
-            date_match = re.search(r'(\d{4})年(\d{1,2})月(\d{1,2})日', response.text)
-            update_time = f"{date_match.group(1)}.{date_match.group(2)}.{date_match.group(3)}" if date_match else datetime.now().strftime("%Y.%m.%d")
-
-            # 提取正文内容 (支持官网常见的两种正文 class)
-            content_div = soup.find('div', class_='art_txt') or soup.find('div', class_='detail-cont')
-            update_content = content_div.get_text(strip=True) if content_div else "无法获取更新内容正文"
-
             result = {
                 'game_name': '王者荣耀',
-                'version': version,
-                'update_time': update_time,
-                'update_content': update_content[:500] + '...', # 截取前500字防止爆Token
-                'source_url': latest_article_url
+                'version': current_version,
+                'update_time': datetime.now().strftime("%Y.%m.%d"), # 自动获取当前日期
+                'update_content': f"为保障系统稳定，已配置为本地直读模式。当前采用 {current_version} 版本数据，详细英雄和装备改动请参考官网。",
+                'source_url': 'https://pvp.qq.com'
             }
 
-            # 更新缓存
+            # 依然保留写入缓存的逻辑，保持系统一致性
             self.cached_versions['honor_of_kings'] = result
             save_version_cache(self.cached_versions)
 
             return result
 
         except Exception as e:
-            logger.error(f"真实抓取王者荣耀版本失败: {str(e)}")
-            return self.cached_versions.get('honor_of_kings') or DEFAULT_VERSIONS.get('honor_of_kings')
+            logger.error(f"加载王者荣耀静态版本失败: {str(e)}")
+            # 最极端的兜底，读取文件最上方的 DEFAULT_VERSIONS
+            return DEFAULT_VERSIONS.get('honor_of_kings')
 
     def get_lol_version(self) -> Optional[Dict]:
-        """真正动态获取英雄联盟（国服）最新版本信息"""
+        """使用拳头官方 Data Dragon API 获取英雄联盟最新版本信息 (极度稳定，适合比赛)"""
         try:
-            # 1. 请求腾讯官方的通用新闻列表API (频道号4913通常对应LOL版本更新)
-            # 相比于直接解析可能被JS动态渲染屏蔽的HTML，直接请求底层数据接口最稳妥
-            api_url = "https://apps.game.qq.com/cmc/cross?serviceId=3&source=web_pc&filter=channel&chanid=4913&typeids=1&limit=5&start=0"
+            # 1. 请求 Riot 官方的 Data Dragon 版本接口
+            api_url = "https://ddragon.leagueoflegends.com/api/versions.json"
             
-            # 由于腾讯接口返回的是类似 var data = {...} 的JSONP格式，需要做字符串截取
-            list_response = self.session.get(api_url, headers=self.headers, timeout=10)
-            list_text = list_response.text
+            # 这个接口极度稳定且没有反爬机制，5秒超时足够了
+            response = self.session.get(api_url, headers=self.headers, timeout=5)
+            response.raise_for_status() # 确保状态码是 200
             
-            # 提取有效JSON部分
-            json_str = re.search(r'\{.*\}', list_text, re.DOTALL)
-            if not json_str:
-                raise ValueError("未能解析LOL官方新闻列表API")
+            # 2. 解析返回的 JSON 数组
+            # 格式类似于: ["14.7.1", "14.6.1", ...]，第一个就是最新版本
+            versions = response.json()
+            if not versions or not isinstance(versions, list):
+                raise ValueError("Data Dragon API 返回的数据格式异常")
                 
-            data = json.loads(json_str.group(0))
-            articles = data.get('data', {}).get('msg', [])
+            latest_version = versions[0]
             
-            latest_article = None
-            for item in articles:
-                if '版本' in item.get('sTitle', '') or '更新' in item.get('sTitle', ''):
-                    latest_article = item
-                    break
-                    
-            if not latest_article:
-                raise ValueError("未能找到最新的LOL版本公告")
-
-            # 2. 拼接最新文章的真实URL并提取信息
-            article_url = f"https://lol.qq.com/news/detail.shtml?docid={latest_article.get('iDocID')}"
-            title = latest_article.get('sTitle', '')
-            
-            # 从标题中提取版本号 (如 "14.6版本更新公告" -> "14.6")
-            version_match = re.search(r'([0-9]+\.[0-9]+)', title)
-            version = version_match.group(1) if version_match else "最新版本"
+            # 提取主版本号作为显示 (例如 "14.7.1" -> 提取 "14.7" 或者直接保留 "14.7.1")
+            # 这里我们直接保留完整的 "14.7.1" 以保证准确性
 
             result = {
                 'game_name': '英雄联盟',
-                'version': version,
-                'update_time': latest_article.get('sCreated', '').split(' ')[0].replace('-', '.'),
-                'update_content': title + "，详细改动请查看官网公告。", # LOL的新闻正文是动态加载的，这里用标题作为摘要
-                'source_url': article_url
+                'version': latest_version,
+                'update_time': datetime.now().strftime("%Y.%m.%d"), # Data Dragon 不返回更新日期，统一使用当前系统时间
+                'update_content': f"已通过拳头官方接口同步至最新 {latest_version} 版本。详细改动请查看官网公告。",
+                'source_url': "https://lol.qq.com" # 为了统一规范，来源链接依然指向国服官网
             }
 
-            # 更新缓存
+            # 3. 更新并保存本地缓存
             self.cached_versions['lol'] = result
             save_version_cache(self.cached_versions)
 
             return result
 
         except Exception as e:
-            logger.error(f"真实抓取英雄联盟版本失败: {str(e)}")
+            logger.error(f"抓取英雄联盟官方 Data Dragon 版本失败: {str(e)}")
+            # 如果极端情况下断网，直接返回本地缓存或默认兜底版本，绝不崩溃
             return self.cached_versions.get('lol') or DEFAULT_VERSIONS.get('lol')
 
     def get_valorant_version(self) -> Optional[Dict]:
-        """真正动态获取无畏契约（国服）最新版本信息"""
+        """使用第三方稳定 API 获取无畏契约版本信息"""
         try:
-            # 1. 策略：无畏契约官网会在初始化的 HTML 中包含最新的新闻列表数据用于首屏渲染
-            url = "https://val.qq.com/"
-            response = self.session.get(url, headers=self.headers, timeout=10)
-            response.encoding = 'utf-8'
+            # 这是一个全球开发者广泛使用的高优接口，返回纯 JSON，无反爬
+            api_url = "https://valorant-api.com/v1/version"
             
-            # 尝试通过正则直接从页面源文件提取包含"版本更新公告"的标题
-            # 匹配格式如："9.04版本更新公告" 或 "v8.11版本更新公告"
-            version_match = re.search(r'([0-9]+\.[0-9]+(?:\.[0-9]+)?)\s*版本更新公告', response.text)
+            response = self.session.get(api_url, headers=self.headers, timeout=5)
+            response.raise_for_status()
+            data = response.json()
             
-            if version_match:
-                version = version_match.group(1)
-            else:
-                # 兜底：尝试访问另一个常见的新闻聚合页
-                list_url = "https://val.qq.com/web202305/news.html"
-                list_response = self.session.get(list_url, headers=self.headers, timeout=10)
-                list_response.encoding = 'utf-8'
-                version_match = re.search(r'([0-9]+\.[0-9]+(?:\.[0-9]+)?)\s*版本更新公告', list_response.text)
-                version = version_match.group(1) if version_match else "最新版本"
-                
-            # 获取当前时间作为兜底更新时间（版本更新通常在查询的近期）
-            update_time = datetime.now().strftime("%Y.%m.%d")
-            
+            # 返回格式示例: {"data": {"branch": "release-08.05", "version": "08.05.00.234567"}}
+            # 提取 branch 并处理，例如 "release-08.05" -> "8.05"
+            branch = data.get("data", {}).get("branch", "最新")
+            version = branch.replace("release-0", "").replace("release-", "")
+
             result = {
                 'game_name': '无畏契约',
                 'version': version,
-                'update_time': update_time,
-                'update_content': f"发现 {version} 版本更新。详细更新日志、英雄调整和地图改动请前往《无畏契约》官网 (val.qq.com) 新闻中心查看。",
-                'source_url': "https://val.qq.com/web202305/news.html"
+                'update_time': datetime.now().strftime("%Y.%m.%d"),
+                'update_content': f"已通过 API 同步至 {version} 版本。详细更新请前往官网查看。",
+                'source_url': "https://val.qq.com/"
             }
 
-            # 更新缓存
             self.cached_versions['valorant'] = result
             save_version_cache(self.cached_versions)
 
             return result
 
         except Exception as e:
-            logger.error(f"真实抓取无畏契约版本失败: {str(e)}")
+            logger.error(f"抓取无畏契约稳定 API 失败: {str(e)}")
             return self.cached_versions.get('valorant') or DEFAULT_VERSIONS.get('valorant')
 
     def get_game_versions(self, games: List[str] = None) -> List[Dict]:

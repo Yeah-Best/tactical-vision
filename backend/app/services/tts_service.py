@@ -32,50 +32,37 @@ class TTSService:
         pitch: str = '+0Hz',
         volume: str = '+0%'
     ) -> bytes:
-        """
-        将文本转换为语音
-
-        Args:
-            text: 要合成的文本
-            voice: 语音名称，默认使用云希
-            rate: 语速，例如 '+0%', '+10%', '-10%'
-            pitch: 音调，例如 '+0Hz', '+2Hz', '-2Hz'
-            volume: 音量，例如 '+0%', '+10%', '-10%'
-
-        Returns:
-            音频数据的字节流
-        """
         try:
-            # 使用指定的语音或默认语音
             voice_name = voice or self.default_voice
-            logger.info(f"开始语音合成: 语音={voice_name}, 语速={rate}, 音调={pitch}")
+            logger.info(f"开始语音合成: 语音={voice_name}")
 
-            # 创建 edge-tts 通信对象
             communicate = edge_tts.Communicate(
-                text=text,
-                voice=voice_name,
-                rate=rate,
-                pitch=pitch,
-                volume=volume
+                text=text, voice=voice_name, rate=rate, pitch=pitch, volume=volume
             )
 
-            # 生成音频数据
-            audio_data = b""
-            chunk_count = 0
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    audio_data += chunk["data"]
-                    chunk_count += 1
+            # 内部函数用于收集音频
+            async def fetch_audio():
+                audio_data = b""
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        audio_data += chunk["data"]
+                return audio_data
+
+            # 【关键修改】：加上 5 秒超时熔断机制
+            try:
+                audio_data = await asyncio.wait_for(fetch_audio(), timeout=5.0)
+            except asyncio.TimeoutError:
+                logger.error("语音合成请求微软接口超时 (超过5秒)！触发降级策略。")
+                return b"" # 返回空字节流，前端拿到空音频不会报错，只是不发声
 
             if len(audio_data) == 0:
-                raise RuntimeError("生成的音频数据为空，请检查网络连接")
+                return b""
 
-            logger.info(f"语音合成完成，音频大小: {len(audio_data)} bytes, 块数量: {chunk_count}")
             return audio_data
 
         except Exception as e:
             logger.error(f"语音合成失败: {str(e)}")
-            raise
+            return b""  # 无论发生什么网络错误，都返回空音频，绝不让上游服务崩溃
 
     def get_emotion_voice_params(self, emotion_type: str) -> dict:
         """
