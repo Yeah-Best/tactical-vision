@@ -1,9 +1,16 @@
 {
   "honor_of_kings": {
     "game_name": "王者荣耀",
-    "version": "未知",
-    "update_time": "未知",
-    "update_content": "无法获取更新内容",
-    "source_url": "https://pvp.qq.com/web201706/newsdetail.shtml?tid=403939"
+    "version": "S43赛季",
+    "update_time": "2026.04.06",
+    "update_content": "为保障系统稳定，已配置为本地直读模式。当前采用 S43赛季 版本数据，详细英雄和装备改动请参考官网。",
+    "source_url": "https://pvp.qq.com"
+  },
+  "lol": {
+    "game_name": "英雄联盟",
+    "version": "16.7.1",
+    "update_time": "2026.04.06",
+    "update_content": "已通过拳头官方接口同步至最新 16.7.1 版本。详细改动请查看官网公告。",
+    "source_url": "https://lol.qq.com"
   }
 }

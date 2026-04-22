@@ -1,0 +1,66 @@
+[
+  {
+    "hero": "亚瑟",
+    "hero_cn": "亚瑟",
+    "hero_en": "Arthur",
+    "counters": [],
+    "countered_by": [],
+    "source_url": "https://pvp.qq.com/web201605/herodetail/1.shtml"
+  },
+  {
+    "hero": "李白",
+    "hero_cn": "李白",
+    "hero_en": "Libai",
+    "counters": [],
+    "countered_by": [],
+    "source_url": "https://pvp.qq.com/web201605/herodetail/3.shtml"
+  },
+  {
+    "hero": "后羿",
+    "hero_cn": "后羿",
+    "hero_en": "Houyi",
+    "counters": [],
+    "countered_by": [],
+    "source_url": "https://pvp.qq.com/web201605/herodetail/7.shtml"
+  },
+  {
+    "hero": "妲己",
+    "hero_cn": "妲己",
+    "hero_en": "Daji",
+    "counters": [],
+    "countered_by": [],
+    "source_url": "https://pvp.qq.com/web201605/herodetail/2.shtml"
+  },
+  {
+    "hero": "鲁班七号",
+    "hero_cn": "鲁班七号",
+    "hero_en": "Luban",
+    "counters": [],
+    "countered_by": [],
+    "source_url": "https://pvp.qq.com/web201605/herodetail/6.shtml"
+  },
+  {
+    "hero": "韩信",
+    "hero_cn": "韩信",
+    "hero_en": "Hanxin",
+    "counters": [],
+    "countered_by": [],
+    "source_url": "https://pvp.qq.com/web201605/herodetail/5.shtml"
+  },
+  {
+    "hero": "貂蝉",
+    "hero_cn": "貂蝉",
+    "hero_en": "Diaochan",
+    "counters": [],
+    "countered_by": [],
+    "source_url": "https://pvp.qq.com/web201605/herodetail/4.shtml"
+  },
+  {
+    "hero": "孙悟空",
+    "hero_cn": "孙悟空",
+    "hero_en": "Wukong",
+    "counters": [],
+    "countered_by": [],
+    "source_url": "https://pvp.qq.com/web201605/herodetail/8.shtml"
+  }
+]

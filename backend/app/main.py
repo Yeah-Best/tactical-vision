@@ -16,9 +16,17 @@ from app.services.game_knowledge_manager import game_knowledge_manager
 async def lifespan(app: FastAPI):
     # 启动时：丢入后台线程执行知识库预热，不阻塞服务启动
     print("🚀 正在后台预热游戏知识库...")
-    asyncio.create_task(asyncio.to_thread(game_knowledge_manager.ensure_knowledge_base))
+    
+    # 【修复点】：先获取具体游戏的服务实例，再调用其 ensure_knowledge_base 方法
+    hok_service = game_knowledge_manager.get_service("honor_kings")
+    lol_service = game_knowledge_manager.get_service("league_of_legends")
+    
+    # 开启两个后台任务分别预热王者荣耀和英雄联盟
+    asyncio.create_task(asyncio.to_thread(hok_service.ensure_knowledge_base))
+    asyncio.create_task(asyncio.to_thread(lol_service.ensure_knowledge_base))
+    
     yield
-    # 关闭时：可以在这里写清理逻辑
+    # 关闭时逻辑（如有）
 
 def create_app() -> FastAPI:
     app = FastAPI(

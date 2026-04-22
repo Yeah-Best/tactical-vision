@@ -38,8 +38,11 @@ class BaseGameKnowledgeService(ABC):
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self.raw_dir = self.base_dir / "raw"
         self.raw_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 默认的 snapshot_path，稍后会在子类中被专属名字覆盖
         self.snapshot_path = self.base_dir / "knowledge_snapshot.json"
         self.chroma_path = self.base_dir / "chroma"
+        
         self.vectorizer = HashingVectorizer(
             n_features=1024,
             alternate_sign=False,
@@ -65,6 +68,69 @@ class BaseGameKnowledgeService(ABC):
         response.raise_for_status()
         response.encoding = response.apparent_encoding or response.encoding
         return response.text
+
+    # ==========================================
+    # 以下为新增：将原本只在王者荣耀里的通用方法提取到了这里
+    # ==========================================
+    def load_snapshot(self) -> Optional[Dict[str, Any]]:
+        if not self.snapshot_path.exists():
+            return None
+        return json.loads(self.snapshot_path.read_text(encoding="utf-8"))
+
+    def _is_stale(self, snapshot: Optional[Dict[str, Any]]) -> bool:
+        if not snapshot or not snapshot.get("generated_at"):
+            return True
+        try:
+            generated_at = datetime.fromisoformat(snapshot["generated_at"])
+        except ValueError:
+            return True
+        return datetime.utcnow() - generated_at > timedelta(hours=settings.GAME_KNOWLEDGE_REFRESH_HOURS)
+
+    @staticmethod
+    def _dedupe(items) -> List[str]:
+        seen = set()
+        ordered: List[str] = []
+        for item in items:
+            if not item or item in seen:
+                continue
+            seen.add(item)
+            ordered.append(item)
+        return ordered
+
+    def _extract_champions_from_text(
+        self,
+        text: str,
+        champion_mappings: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        if not text:
+            return []
+
+        normalized_text = text.lower()
+        matches: List[Dict[str, Any]] = []
+        seen = set()
+
+        for mapping in sorted(
+            champion_mappings,
+            key=lambda item: max((len(alias) for alias in item.get("aliases", []) or [""]), default=0),
+            reverse=True,
+        ):
+            found = False
+            for alias in mapping.get("aliases", []):
+                alias = alias.strip()
+                if not alias:
+                    continue
+                if re.search(r"[A-Za-z]", alias):
+                    pattern = rf"(?<![a-z]){re.escape(alias.lower())}(?![a-z])"
+                    found = re.search(pattern, normalized_text) is not None
+                else:
+                    found = alias in text
+                if found:
+                    key = mapping.get("english_name") or mapping.get("chinese_name")
+                    if key and key not in seen:
+                        seen.add(key)
+                        matches.append(mapping)
+                    break
+        return matches
 
     @abstractmethod
     def refresh_knowledge_base(self) -> Dict[str, Any]:
@@ -107,6 +173,7 @@ class HonorKingsKnowledgeService(BaseGameKnowledgeService):
         self.game_name = "王者荣耀"
         self.game_code = "honor_kings"
         self.collection_name = "honorkings_patch_knowledge"
+        self.snapshot_path = self.base_dir / f"{self.game_code}_snapshot.json"
 
 
     def _embed_texts(self, texts):
@@ -839,6 +906,7 @@ class LeagueOfLegendsKnowledgeService(BaseGameKnowledgeService):
         self.game_name = "英雄联盟"
         self.game_code = "league_of_legends"
         self.collection_name = "lol_patch_knowledge"
+        self.snapshot_path = self.base_dir / f"{self.game_code}_snapshot.json"
 
     def _fetch_champion_mappings(self) -> List[Dict[str, Any]]:
         """从LOL官方接口抓取真实的英雄数据"""

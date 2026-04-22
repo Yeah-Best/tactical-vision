@@ -1,0 +1,170 @@
+{
+  "generated_at": "2026-04-06T11:54:42.764494",
+  "version_label": "当前版本",
+  "patch_notes": {
+    "title": "王者荣耀版本公告",
+    "url": "https://pvp.qq.com/webplat/info/news_version3_list/152/1163/1737.shtml",
+    "version_label": "当前版本",
+    "summary": "当前版本为 当前版本",
+    "sections": [
+      "当前版本为 当前版本"
+    ]
+  },
+  "champion_mappings": [
+    {
+      "champion_id": "1",
+      "english_name": "Arthur",
+      "chinese_name": "亚瑟",
+      "hero_title": "圣骑士",
+      "aliases": [
+        "1",
+        "亚瑟",
+        "Arthur"
+      ]
+    },
+    {
+      "champion_id": "2",
+      "english_name": "Daji",
+      "chinese_name": "妲己",
+      "hero_title": "魅惑妖姬",
+      "aliases": [
+        "2",
+        "妲己",
+        "Daji"
+      ]
+    },
+    {
+      "champion_id": "3",
+      "english_name": "Libai",
+      "chinese_name": "李白",
+      "hero_title": "青莲剑仙",
+      "aliases": [
+        "3",
+        "李白",
+        "Libai"
+      ]
+    },
+    {
+      "champion_id": "4",
+      "english_name": "Diaochan",
+      "chinese_name": "貂蝉",
+      "hero_title": "绝代舞姬",
+      "aliases": [
+        "4",
+        "貂蝉",
+        "Diaochan"
+      ]
+    },
+    {
+      "champion_id": "5",
+      "english_name": "Hanxin",
+      "chinese_name": "韩信",
+      "hero_title": "国士无双",
+      "aliases": [
+        "5",
+        "韩信",
+        "Hanxin"
+      ]
+    },
+    {
+      "champion_id": "6",
+      "english_name": "Luban",
+      "chinese_name": "鲁班七号",
+      "hero_title": "机关造物",
+      "aliases": [
+        "6",
+        "鲁班七号",
+        "Luban"
+      ]
+    },
+    {
+      "champion_id": "7",
+      "english_name": "Houyi",
+      "chinese_name": "后羿",
+      "hero_title": "射落九日",
+      "aliases": [
+        "7",
+        "后羿",
+        "Houyi"
+      ]
+    },
+    {
+      "champion_id": "8",
+      "english_name": "Wukong",
+      "chinese_name": "孙悟空",
+      "hero_title": "齐天大圣",
+      "aliases": [
+        "8",
+        "孙悟空",
+        "Wukong"
+      ]
+    }
+  ],
+  "win_rates": [],
+  "counters": [
+    {
+      "hero": "韩信",
+      "hero_cn": "韩信",
+      "hero_en": "Hanxin",
+      "counters": [],
+      "countered_by": [],
+      "source_url": "https://pvp.qq.com/web201605/herodetail/5.shtml"
+    },
+    {
+      "hero": "李白",
+      "hero_cn": "李白",
+      "hero_en": "Libai",
+      "counters": [],
+      "countered_by": [],
+      "source_url": "https://pvp.qq.com/web201605/herodetail/3.shtml"
+    },
+    {
+      "hero": "亚瑟",
+      "hero_cn": "亚瑟",
+      "hero_en": "Arthur",
+      "counters": [],
+      "countered_by": [],
+      "source_url": "https://pvp.qq.com/web201605/herodetail/1.shtml"
+    },
+    {
+      "hero": "妲己",
+      "hero_cn": "妲己",
+      "hero_en": "Daji",
+      "counters": [],
+      "countered_by": [],
+      "source_url": "https://pvp.qq.com/web201605/herodetail/2.shtml"
+    },
+    {
+      "hero": "孙悟空",
+      "hero_cn": "孙悟空",
+      "hero_en": "Wukong",
+      "counters": [],
+      "countered_by": [],
+      "source_url": "https://pvp.qq.com/web201605/herodetail/8.shtml"
+    },
+    {
+      "hero": "鲁班七号",
+      "hero_cn": "鲁班七号",
+      "hero_en": "Luban",
+      "counters": [],
+      "countered_by": [],
+      "source_url": "https://pvp.qq.com/web201605/herodetail/6.shtml"
+    },
+    {
+      "hero": "貂蝉",
+      "hero_cn": "貂蝉",
+      "hero_en": "Diaochan",
+      "counters": [],
+      "countered_by": [],
+      "source_url": "https://pvp.qq.com/web201605/herodetail/4.shtml"
+    },
+    {
+      "hero": "后羿",
+      "hero_cn": "后羿",
+      "hero_en": "Houyi",
+      "counters": [],
+      "countered_by": [],
+      "source_url": "https://pvp.qq.com/web201605/herodetail/7.shtml"
+    }
+  ]
+}
